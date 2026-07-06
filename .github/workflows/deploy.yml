@@ -28,6 +28,10 @@ jobs:
         env:
           # Serve from /<repo>/ on github.io
           BASE_PATH: "/${{ github.event.repository.name }}/"
+          # Shared-editing backend (set these as repo Variables). Safe to expose:
+          # the anon key is public and access is governed by table policies.
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -26,6 +26,40 @@ offline use** (the Reserve has patchy cell coverage).
 
 ---
 
+## Collaborative / shared editing (optional)
+
+By default the course is stored **per-device**. To let your whole team edit **one
+shared live course** (changes sync to everyone in ~1 second), connect a free
+**Supabase** backend:
+
+1. Create a free project at [supabase.com](https://supabase.com).
+2. In the project, open **SQL Editor → New query**, paste the contents of
+   [`supabase/schema.sql`](supabase/schema.sql), and **Run** it. This creates the
+   `pois` table, access policies, and turns on realtime.
+3. In **Settings → API**, copy the **Project URL** and the **anon public** key.
+4. Wire them in:
+   - **Local dev:** copy `.env.example` to `.env.local` and fill both values.
+   - **Deployed site:** in the GitHub repo, **Settings → Secrets and variables →
+     Actions → Variables**, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`,
+     then re-run the Deploy workflow.
+
+That's it — the app switches to shared mode automatically. The header shows a
+status pill: **Local only / Connecting… / Shared · `<course>` / Offline (cached)**.
+
+- **One course, everyone in sync.** All teammates editing the same link see each
+  other's adds/moves/deletes live.
+- **Multiple courses.** Add `?course=my-crew` to the URL to use a separate shared
+  course (default is `jamboree`).
+- **Offline.** The last-synced course is cached on-device, so Drive mode works
+  with no signal; edits sync back when you're online again.
+- **Access.** The anon key is public (it ships in the browser); the shared course
+  is editable by anyone with the link. Fine for a team tour — tighten via the
+  policies in `schema.sql` if you need to.
+
+If you don't configure Supabase, the app simply stays local-only (no change).
+
+---
+
 ## Publish it (share with others)
 
 The app is a static site, so any HTTPS static host works. The simplest, free path

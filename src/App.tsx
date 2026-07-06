@@ -20,6 +20,8 @@ import { haversine } from "./lib/geo";
 import { TILE_LAYERS, getLayer, prefetchTiles, tilesForBounds, type Bounds } from "./lib/tiles";
 import { useGeolocation } from "./hooks/useGeolocation";
 import { useWakeLock } from "./hooks/useWakeLock";
+import { isCloud, currentCourseId } from "./lib/supabase";
+import { deletePoiRemote, fetchPois, subscribePois, upsertMany, upsertPoi, type SyncStatus } from "./lib/cloudStore";
 
 const BECHTEL_CENTER: [number, number] = [37.9169, -81.1153];
 
@@ -58,21 +60,65 @@ export default function App() {
   const [toast, setToast] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const prevActive = useRef<Set<string>>(new Set());
+  const courseId = currentCourseId();
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | "local">(isCloud ? "connecting" : "local");
 
-  // Load persisted data; seed Summit Bechtel starter points on first launch.
+  // Load persisted data. In cloud mode, load the shared course from Supabase,
+  // seed it if empty, subscribe to realtime changes, and cache locally for offline.
   useEffect(() => {
+    let unsub = () => {};
     (async () => {
-      const [p, s] = await Promise.all([loadPois(), loadSettings()]);
-      if (p.length === 0 && !s.seededStarter) {
-        setPois(starterPois());
-        setSettings({ ...s, seededStarter: true });
-      } else {
-        setPois(p);
+      const [localPois, s] = await Promise.all([loadPois(), loadSettings()]);
+      if (isCloud) {
+        try {
+          let remote = await fetchPois(courseId);
+          if (remote.length === 0) {
+            remote = starterPois();
+            await upsertMany(remote, courseId);
+          }
+          setPois(remote);
+          savePois(remote); // offline cache
+        } catch {
+          // Offline / fetch failed → show the last cached course.
+          setPois(localPois.length ? localPois : starterPois());
+          setSyncStatus("offline");
+        }
+        unsub = subscribePois(
+          courseId,
+          (change) => {
+            setPois((prev) => {
+              if (change.type === "delete") return prev.filter((p) => p.id !== change.id);
+              const others = prev.filter((p) => p.id !== change.poi.id);
+              return [...others, change.poi].sort((a, b) => a.order - b.order);
+            });
+          },
+          (st) => setSyncStatus(st)
+        );
         setSettings(s);
+      } else {
+        if (localPois.length === 0 && !s.seededStarter) {
+          setPois(starterPois());
+          setSettings({ ...s, seededStarter: true });
+        } else {
+          setPois(localPois);
+          setSettings(s);
+        }
       }
       setReady(true);
     })();
-  }, []);
+    return () => unsub();
+  }, [courseId]);
+
+  // Cloud write-through helpers (no-op in local mode).
+  const pushUpsert = (p: Poi) => {
+    if (isCloud) upsertPoi(p, courseId).catch(() => setSyncStatus("offline"));
+  };
+  const pushMany = (ps: Poi[]) => {
+    if (isCloud) upsertMany(ps, courseId).catch(() => setSyncStatus("offline"));
+  };
+  const pushDelete = (id: string) => {
+    if (isCloud) deletePoiRemote(id).catch(() => setSyncStatus("offline"));
+  };
 
   // Persist
   useEffect(() => {
@@ -149,6 +195,7 @@ export default function App() {
     setPois((prev) => [...prev, p]);
     setSelectedId(p.id);
     setEditingId(p.id);
+    pushUpsert(p);
   };
 
   const dropAtMyLocation = () => {
@@ -164,6 +211,7 @@ export default function App() {
   const savePoi = (p: Poi) => {
     setPois((prev) => prev.map((x) => (x.id === p.id ? p : x)));
     setEditingId(null);
+    pushUpsert(p);
     showToast("Saved.");
   };
 
@@ -171,10 +219,16 @@ export default function App() {
     setPois((prev) => prev.filter((x) => x.id !== id));
     setEditingId(null);
     if (selectedId === id) setSelectedId(null);
+    pushDelete(id);
   };
 
   const dragPoi = (id: string, lat: number, lng: number) => {
-    setPois((prev) => prev.map((x) => (x.id === id ? { ...x, lat, lng } : x)));
+    setPois((prev) => {
+      const next = prev.map((x) => (x.id === id ? { ...x, lat, lng } : x));
+      const moved = next.find((x) => x.id === id);
+      if (moved) pushUpsert(moved);
+      return next;
+    });
   };
 
   const movePoi = (id: string, dir: -1 | 1) => {
@@ -184,7 +238,9 @@ export default function App() {
       const j = i + dir;
       if (j < 0 || j >= arr.length) return prev;
       [arr[i], arr[j]] = [arr[j], arr[i]];
-      return arr.map((x, k) => ({ ...x, order: k }));
+      const reindexed = arr.map((x, k) => ({ ...x, order: k }));
+      pushMany([reindexed[i], reindexed[j]]);
+      return reindexed;
     });
   };
 
@@ -197,6 +253,7 @@ export default function App() {
         showToast("All Summit Bechtel starter points are already loaded.");
         return prev;
       }
+      pushMany(additions);
       showToast(`Added ${additions.length} Summit Bechtel points.`);
       return [...prev, ...additions];
     });
@@ -208,8 +265,10 @@ export default function App() {
   const onImport = async (file: File) => {
     try {
       const course = await importCourse(file);
-      setPois(course.pois.sort((a, b) => a.order - b.order));
+      const sorted = course.pois.sort((a, b) => a.order - b.order);
+      setPois(sorted);
       setSettings((s) => ({ ...s, courseName: course.name || s.courseName }));
+      pushMany(sorted);
       showToast(`Loaded ${course.pois.length} points.`);
     } catch (e) {
       showToast(`Import failed: ${(e as Error).message}`);
@@ -272,19 +331,36 @@ export default function App() {
 
       {/* Top bar */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[1000] flex items-start justify-between gap-2 p-3">
-        <div className="pointer-events-auto flex overflow-hidden rounded-xl border border-border bg-panel/90 shadow-lg backdrop-blur">
-          <button
-            onClick={() => setMode("edit")}
-            className={`px-4 py-2.5 text-sm font-semibold ${mode === "edit" ? "bg-sun text-ink" : "text-muted"}`}
-          >
-            ✎ Plan
-          </button>
-          <button
-            onClick={() => { setMode("drive"); setFollow(true); }}
-            className={`px-4 py-2.5 text-sm font-semibold ${mode === "drive" ? "bg-sun text-ink" : "text-muted"}`}
-          >
-            ▶ Drive
-          </button>
+        <div className="pointer-events-auto flex flex-col items-start gap-2">
+          <div className="flex overflow-hidden rounded-xl border border-border bg-panel/90 shadow-lg backdrop-blur">
+            <button
+              onClick={() => setMode("edit")}
+              className={`px-4 py-2.5 text-sm font-semibold ${mode === "edit" ? "bg-sun text-ink" : "text-muted"}`}
+            >
+              ✎ Plan
+            </button>
+            <button
+              onClick={() => { setMode("drive"); setFollow(true); }}
+              className={`px-4 py-2.5 text-sm font-semibold ${mode === "drive" ? "bg-sun text-ink" : "text-muted"}`}
+            >
+              ▶ Drive
+            </button>
+          </div>
+          <div className="flex items-center gap-1.5 rounded-full border border-border bg-panel/90 px-3 py-1 text-[11px] shadow backdrop-blur">
+            <span
+              className="inline-block h-2 w-2 rounded-full"
+              style={{ background: syncStatus === "synced" ? "#3fb68b" : syncStatus === "connecting" ? "#f5b301" : syncStatus === "offline" ? "#e5687a" : "#8fb3a0" }}
+            />
+            <span className="text-muted">
+              {syncStatus === "local"
+                ? "Local only"
+                : syncStatus === "synced"
+                ? `Shared · ${courseId}`
+                : syncStatus === "connecting"
+                ? "Connecting…"
+                : "Offline (cached)"}
+            </span>
+          </div>
         </div>
 
         <div className="pointer-events-auto flex items-center gap-2">

@@ -45,10 +45,13 @@ export function newId(): string {
   return `poi_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
-/** Build full Poi records from the bundled Summit Bechtel starter set. */
+/** Build full Poi records from the bundled Summit Bechtel starter set.
+ * IDs are deterministic (derived from the name) so seeding the same course
+ * from multiple devices upserts identical rows instead of creating duplicates. */
 export function starterPois(startOrder = 0): Poi[] {
+  const slug = (s: string) => "seed_" + s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
   return BECHTEL_STARTER.map((s, i) => ({
-    id: newId(),
+    id: slug(s.name),
     name: s.name,
     description: s.description,
     notes: s.notes,
