@@ -1,0 +1,40 @@
+export type PoiCategory =
+  | "landmark"
+  | "activity"
+  | "camp"
+  | "safety"
+  | "history"
+  | "nature"
+  | "food"
+  | "other";
+
+export interface Poi {
+  id: string;
+  name: string;
+  description: string;
+  notes: string;
+  lat: number;
+  lng: number;
+  category: PoiCategory;
+  radius: number; // trigger radius in meters
+  order: number;
+  createdAt: number;
+}
+
+export interface CourseFile {
+  version: 1;
+  name: string;
+  exportedAt: string;
+  pois: Poi[];
+}
+
+export const CATEGORIES: Record<PoiCategory, { label: string; color: string; emoji: string }> = {
+  landmark: { label: "Landmark", color: "#f5b301", emoji: "📍" },
+  activity: { label: "Activity", color: "#e6522c", emoji: "🎯" },
+  camp: { label: "Camp / Base", color: "#2982e8", emoji: "⛺" },
+  safety: { label: "Safety", color: "#e11d48", emoji: "⚠️" },
+  history: { label: "History", color: "#a855f7", emoji: "🏛️" },
+  nature: { label: "Nature", color: "#1b5e3f", emoji: "🌲" },
+  food: { label: "Food / Water", color: "#0891b2", emoji: "🍽️" },
+  other: { label: "Other", color: "#64748b", emoji: "•" },
+};
