@@ -45,12 +45,29 @@ function chime() {
   }
 }
 
+const PLAN_PASSWORD = "koolkids";
+
 export default function App() {
   const [pois, setPois] = useState<Poi[]>([]);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [ready, setReady] = useState(false);
 
-  const [mode, setMode] = useState<"edit" | "drive">("edit");
+  const [mode, setMode] = useState<"edit" | "drive">("drive");
+  const [planUnlocked, setPlanUnlocked] = useState<boolean>(() => {
+    try { return localStorage.getItem("planUnlocked") === "1"; } catch { return false; }
+  });
+  const [showPw, setShowPw] = useState(false);
+  const [pwInput, setPwInput] = useState("");
+  const [pwError, setPwError] = useState(false);
+  const tryUnlock = () => {
+    if (pwInput === PLAN_PASSWORD) {
+      setPlanUnlocked(true);
+      try { localStorage.setItem("planUnlocked", "1"); } catch {}
+      setShowPw(false); setPwInput(""); setPwError(false); setMode("edit");
+    } else {
+      setPwError(true);
+    }
+  };
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [drawer, setDrawer] = useState<"none" | "list" | "menu">("none");
@@ -321,7 +338,7 @@ export default function App() {
         selectedId={selectedId}
         activeIds={activeIds}
         showRadii={mode === "edit"}
-        onMapClick={addPoiAt}
+        onMapClick={(lat: number, lng: number) => { if (mode === "edit") addPoiAt(lat, lng); }}
         onMarkerClick={(id) => {
           setSelectedId(id);
           if (mode === "edit") setEditingId(id);
@@ -334,10 +351,10 @@ export default function App() {
         <div className="pointer-events-auto flex flex-col items-start gap-2">
           <div className="flex overflow-hidden rounded-xl border border-border bg-panel/90 shadow-lg backdrop-blur">
             <button
-              onClick={() => setMode("edit")}
+              onClick={() => { if (planUnlocked) setMode("edit"); else { setPwInput(""); setPwError(false); setShowPw(true); } }}
               className={`px-4 py-2.5 text-sm font-semibold ${mode === "edit" ? "bg-sun text-ink" : "text-muted"}`}
             >
-              ✎ Plan
+              {planUnlocked ? "✎ Plan" : "🔒 Plan"}
             </button>
             <button
               onClick={() => { setMode("drive"); setFollow(true); }}
@@ -345,6 +362,15 @@ export default function App() {
             >
               ▶ Drive
             </button>
+            {planUnlocked && (
+              <button
+                onClick={() => { setPlanUnlocked(false); try { localStorage.removeItem("planUnlocked"); } catch {} setMode("drive"); setFollow(true); setToast("Plan mode locked"); }}
+                className="px-3 py-2.5 text-sm text-muted"
+                title="Lock Plan mode"
+              >
+                🔓
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-1.5 rounded-full border border-border bg-panel/90 px-3 py-1 text-[11px] shadow backdrop-blur">
             <span
@@ -479,6 +505,31 @@ export default function App() {
         const p = pois.find((x) => x.id === editingId);
         return p ? <PoiEditor poi={p} onSave={savePoi} onDelete={deletePoi} onClose={() => setEditingId(null)} /> : null;
       })()}
+
+      {/* Plan mode password gate */}
+      {showPw && (
+        <div className="absolute inset-0 z-[1400] flex items-center justify-center bg-black/60 p-6" onClick={() => setShowPw(false)}>
+          <div className="w-full max-w-xs rounded-2xl border border-border bg-panel p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="mb-1 text-base font-semibold text-pale">🔒 Enter Plan mode</h2>
+            <p className="mb-3 text-xs leading-relaxed text-muted">Planning is password-protected. Drive mode is always open — no password needed.</p>
+            <input
+              type="password"
+              autoFocus
+              inputMode="text"
+              value={pwInput}
+              onChange={(e) => { setPwInput(e.target.value); setPwError(false); }}
+              onKeyDown={(e) => { if (e.key === "Enter") tryUnlock(); }}
+              placeholder="Password"
+              className={`w-full rounded-lg border bg-black/20 px-3 py-2.5 text-sm text-pale outline-none ${pwError ? "border-red-400" : "border-border"}`}
+            />
+            {pwError && <p className="mt-1 text-xs text-red-400">Incorrect password.</p>}
+            <div className="mt-4 flex gap-2">
+              <button onClick={() => setShowPw(false)} className="flex-1 rounded-lg border border-border px-4 py-2.5 text-sm text-muted">Cancel</button>
+              <button onClick={tryUnlock} className="flex-1 rounded-lg bg-sun px-4 py-2.5 text-sm font-semibold text-ink">Unlock</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast */}
       {toast && (
