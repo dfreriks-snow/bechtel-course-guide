@@ -540,9 +540,15 @@ export default function App() {
 
             <div className="mb-4 space-y-2 border-t border-border pt-4">
               <button onClick={loadStarterPoints} className="w-full rounded-lg border border-sun/50 bg-sun/10 px-4 py-2.5 text-sm font-semibold text-sun hover:bg-sun/20">★ Load Summit Bechtel starter points</button>
-              <button onClick={() => exportCourse(settings.courseName, pois)} className="w-full rounded-lg border border-border px-4 py-2.5 text-sm text-pale hover:bg-card">⤓ Export course (.json)</button>
-              <button onClick={() => fileInput.current?.click()} className="w-full rounded-lg border border-border px-4 py-2.5 text-sm text-pale hover:bg-card">⤒ Import course (.json)</button>
-              <input ref={fileInput} type="file" accept="application/json,.json" className="hidden" onChange={(e) => e.target.files?.[0] && onImport(e.target.files[0])} />
+              {planUnlocked ? (
+                <>
+                  <button onClick={() => exportCourse(settings.courseName, pois)} className="w-full rounded-lg border border-border px-4 py-2.5 text-sm text-pale hover:bg-card">⤓ Export course (.json)</button>
+                  <button onClick={() => fileInput.current?.click()} className="w-full rounded-lg border border-border px-4 py-2.5 text-sm text-pale hover:bg-card">⤒ Import course (.json)</button>
+                  <input ref={fileInput} type="file" accept="application/json,.json" className="hidden" onChange={(e) => e.target.files?.[0] && onImport(e.target.files[0])} />
+                </>
+              ) : (
+                <p className="rounded-lg border border-border px-4 py-2.5 text-xs text-muted">🔒 Export / import require the admin password. Tap 🔒 Plan to unlock.</p>
+              )}
             </div>
 
             <div className="mb-4 space-y-2 border-t border-border pt-4">
