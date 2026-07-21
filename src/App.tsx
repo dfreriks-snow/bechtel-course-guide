@@ -5,6 +5,7 @@ import PoiList from "./components/PoiList";
 import DriveCard from "./components/DriveCard";
 import RoutePanel from "./components/RoutePanel";
 import type { Poi } from "./lib/types";
+import { CATEGORIES } from "./lib/types";
 import {
   DEFAULT_SETTINGS,
   exportCourse,
@@ -71,6 +72,8 @@ export default function App() {
     }
   };
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [search, setSearch] = useState(false);
+  const [searchQ, setSearchQ] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pendingNewId, setPendingNewId] = useState<string | null>(null);
   const [drawer, setDrawer] = useState<"none" | "list" | "menu" | "route">("none");
@@ -189,6 +192,27 @@ export default function App() {
     if (mode === "drive" && geo.fix) for (const p of pois) if ((distances.get(p.id) ?? Infinity) <= p.radius) s.add(p.id);
     return s;
   }, [mode, geo.fix, pois, distances]);
+
+  const searchResults = useMemo(() => {
+    const q = searchQ.trim().toLowerCase();
+    if (!q) return [] as Poi[];
+    const hit = pois.filter((p) =>
+      p.name.toLowerCase().includes(q) ||
+      CATEGORIES[p.category].label.toLowerCase().includes(q) ||
+      (p.description ?? "").toLowerCase().includes(q));
+    hit.sort((a, b) => {
+      const an = a.name.toLowerCase().startsWith(q) ? 0 : 1;
+      const bn = b.name.toLowerCase().startsWith(q) ? 0 : 1;
+      if (an !== bn) return an - bn;
+      return a.name.localeCompare(b.name);
+    });
+    return hit.slice(0, 12);
+  }, [pois, searchQ]);
+  const goToPoi = (id: string) => {
+    setSelectedId(id);
+    setSearch(false);
+    setSearchQ("");
+  };
 
   // Chime when a new point becomes active; clear dismissal when its point leaves range.
   useEffect(() => {
@@ -435,11 +459,47 @@ export default function App() {
               <option key={l.id} value={l.id}>{l.label}</option>
             ))}
           </select>
+          <button onClick={() => { setSearch((s) => !s); setSearchQ(""); }} className={`rounded-xl border border-border px-3 py-2.5 text-sm shadow-lg backdrop-blur ${search ? "bg-sun text-ink" : "bg-panel/90 text-pale"}`} title="Search locations">🔍</button>
           <button onClick={() => setDrawer(drawer === "route" ? "none" : "route")} className="rounded-xl border border-border bg-panel/90 px-3 py-2.5 text-sm text-pale shadow-lg backdrop-blur" title="Plan a course">🧭 Guide</button>
           <button onClick={() => setDrawer(drawer === "list" ? "none" : "list")} className="rounded-xl border border-border bg-panel/90 px-3 py-2.5 text-sm text-pale shadow-lg backdrop-blur">☰ {pois.length}</button>
           <button onClick={() => setDrawer(drawer === "menu" ? "none" : "menu")} className="rounded-xl border border-border bg-panel/90 px-3 py-2.5 text-sm text-pale shadow-lg backdrop-blur">⚙</button>
         </div>
       </div>
+
+      {/* Location search */}
+      {search && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-[1200] flex justify-center p-3">
+          <div className="pointer-events-auto mt-16 w-full max-w-md rounded-2xl border border-border bg-panel/95 shadow-2xl backdrop-blur">
+            <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+              <span className="text-muted">🔍</span>
+              <input
+                autoFocus
+                value={searchQ}
+                onChange={(e) => setSearchQ(e.target.value)}
+                placeholder="Search locations…"
+                className="w-full bg-transparent py-1.5 text-sm text-pale placeholder:text-muted focus:outline-none"
+              />
+              <button onClick={() => { setSearch(false); setSearchQ(""); }} className="rounded-lg px-2 py-1 text-sm text-muted hover:bg-white/5">✕</button>
+            </div>
+            {searchQ.trim() && (
+              <div className="max-h-72 overflow-y-auto py-1">
+                {searchResults.length === 0 ? (
+                  <p className="px-3 py-3 text-sm text-muted">No matching locations.</p>
+                ) : searchResults.map((p) => {
+                  const d = distances.get(p.id);
+                  return (
+                    <button key={p.id} onClick={() => goToPoi(p.id)} className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-white/5">
+                      <span className="text-base">{CATEGORIES[p.category].emoji}</span>
+                      <span className="flex-1 truncate text-sm text-pale">{p.name}</span>
+                      <span className="flex-none text-[11px] text-muted">{CATEGORIES[p.category].label}{d != null ? ` · ${(d / 1609.344).toFixed(1)} mi` : ""}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Edit-mode helpers */}
       {mode === "edit" && (
