@@ -40,7 +40,7 @@ export const CATEGORIES: Record<PoiCategory, { label: string; color: string; emo
   history: { label: "History", color: "#a855f7", emoji: "🏛️" },
   nature: { label: "Nature", color: "#1b5e3f", emoji: "🌲" },
   food: { label: "Food", color: "#0891b2", emoji: "🍽️" },
-  water: { label: "Water", color: "#38bdf8", emoji: "💧" },
+  water: { label: "Water", color: "#38bdf8", emoji: "🌊" },
   statue: { label: "Statue", color: "#a16207", emoji: "🗿" },
   blocked: { label: "No-drive / blocked", color: "#dc2626", emoji: "✕" },
   parkwalk: { label: "Park & walk", color: "#16a34a", emoji: "✕" },
