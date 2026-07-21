@@ -6,6 +6,7 @@ const store = localforage.createInstance({ name: "bechtel-course-guide", storeNa
 
 const POIS_KEY = "pois";
 const SETTINGS_KEY = "settings";
+const SAVED_COURSES_KEY = "savedCourses";
 
 export interface Settings {
   courseName: string;
@@ -43,6 +44,41 @@ export async function saveSettings(s: Settings): Promise<void> {
 
 export function newId(): string {
   return `poi_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
+/** A named snapshot of a course, saved locally on this device. */
+export interface SavedCourse {
+  id: string;
+  name: string;
+  savedAt: number;
+  pois: Poi[];
+}
+
+export async function loadSavedCourses(): Promise<SavedCourse[]> {
+  const list = (await store.getItem<SavedCourse[]>(SAVED_COURSES_KEY)) ?? [];
+  return list.sort((a, b) => b.savedAt - a.savedAt);
+}
+
+/** Save (or overwrite by matching name, case-insensitive) a named course. Returns the updated list. */
+export async function saveNamedCourse(name: string, pois: Poi[]): Promise<SavedCourse[]> {
+  const trimmed = name.trim() || "Untitled course";
+  const list = (await store.getItem<SavedCourse[]>(SAVED_COURSES_KEY)) ?? [];
+  const snapshot = pois.map((p) => ({ ...p }));
+  const existing = list.find((c) => c.name.toLowerCase() === trimmed.toLowerCase());
+  if (existing) {
+    existing.pois = snapshot;
+    existing.savedAt = Date.now();
+  } else {
+    list.push({ id: `course_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`, name: trimmed, savedAt: Date.now(), pois: snapshot });
+  }
+  await store.setItem(SAVED_COURSES_KEY, list);
+  return list.sort((a, b) => b.savedAt - a.savedAt);
+}
+
+export async function deleteNamedCourse(id: string): Promise<SavedCourse[]> {
+  const list = ((await store.getItem<SavedCourse[]>(SAVED_COURSES_KEY)) ?? []).filter((c) => c.id !== id);
+  await store.setItem(SAVED_COURSES_KEY, list);
+  return list.sort((a, b) => b.savedAt - a.savedAt);
 }
 
 /** Build full Poi records from the bundled Summit Bechtel starter set.

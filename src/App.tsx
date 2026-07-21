@@ -16,6 +16,10 @@ import {
   savePois,
   saveSettings,
   starterPois,
+  loadSavedCourses,
+  saveNamedCourse,
+  deleteNamedCourse,
+  type SavedCourse,
   type Settings,
 } from "./lib/store";
 import { haversine } from "./lib/geo";
@@ -74,6 +78,9 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState(false);
   const [searchQ, setSearchQ] = useState("");
+  const [savedCourses, setSavedCourses] = useState<SavedCourse[]>([]);
+  const [saveName, setSaveName] = useState("");
+  useEffect(() => { loadSavedCourses().then(setSavedCourses); }, []);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pendingNewId, setPendingNewId] = useState<string | null>(null);
   const [drawer, setDrawer] = useState<"none" | "list" | "menu" | "route">("none");
@@ -343,6 +350,29 @@ export default function App() {
     setDrawer("none");
   };
 
+  // ── Named courses (saved locally on this device) ──
+  const saveCurrentCourse = async (name: string) => {
+    const clean = (pendingNewId ? pois.filter((x) => x.id !== pendingNewId) : pois);
+    if (clean.length === 0) { showToast("Add some points before saving a course."); return; }
+    const list = await saveNamedCourse(name || settings.courseName, clean);
+    setSavedCourses(list);
+    setSaveName("");
+    if (name.trim()) setSettings((s) => ({ ...s, courseName: name.trim() }));
+    showToast(`Saved course “${(name.trim() || settings.courseName)}”.`);
+  };
+  const loadNamedCourse = (course: SavedCourse) => {
+    const sorted = course.pois.map((p) => ({ ...p })).sort((a, b) => a.order - b.order);
+    setPois(sorted);
+    savePois(sorted);
+    setSettings((s) => ({ ...s, courseName: course.name }));
+    pushMany(sorted);
+    showToast(`Loaded course “${course.name}” (${sorted.length} points).`);
+    setDrawer("none");
+  };
+  const removeNamedCourse = async (id: string) => {
+    setSavedCourses(await deleteNamedCourse(id));
+  };
+
   // ── Offline download ──
   const boundsForDownload = (): Bounds => {
     if (pois.length >= 1) {
@@ -610,6 +640,37 @@ export default function App() {
                 <p className="rounded-lg border border-border px-4 py-2.5 text-xs text-muted">🔒 Export / import require the admin password. Tap 🔒 Plan to unlock.</p>
               )}
             </div>
+
+            {planUnlocked && (
+              <div className="mb-4 space-y-2 border-t border-border pt-4">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-muted">Saved courses (this device)</label>
+                <div className="flex gap-2">
+                  <input
+                    value={saveName}
+                    onChange={(e) => setSaveName(e.target.value)}
+                    placeholder={settings.courseName || "Course name"}
+                    className="min-w-0 flex-1 rounded-lg border border-border bg-ink px-3 py-2 text-sm text-white focus:border-sun focus:outline-none"
+                  />
+                  <button onClick={() => saveCurrentCourse(saveName)} className="flex-none rounded-lg border border-sun/50 bg-sun/10 px-3 py-2 text-sm font-semibold text-sun hover:bg-sun/20">💾 Save</button>
+                </div>
+                {savedCourses.length === 0 ? (
+                  <p className="text-xs text-muted">Save the current points as a named course to reuse or switch between courses later.</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {savedCourses.map((c) => (
+                      <li key={c.id} className="flex items-center gap-2 rounded-lg border border-border bg-black/10 px-3 py-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm text-pale">{c.name}</div>
+                          <div className="text-[11px] text-muted">{c.pois.length} points · {new Date(c.savedAt).toLocaleDateString()}</div>
+                        </div>
+                        <button onClick={() => loadNamedCourse(c)} className="flex-none rounded-lg border border-border px-2.5 py-1 text-xs text-pale hover:bg-card">Load</button>
+                        <button onClick={() => removeNamedCourse(c.id)} className="flex-none rounded-lg px-2 py-1 text-xs text-red-400 hover:bg-white/5">✕</button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
 
             <div className="mb-4 space-y-2 border-t border-border pt-4">
               <button onClick={downloadArea} disabled={dl?.active} className="w-full rounded-lg bg-forest px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">
