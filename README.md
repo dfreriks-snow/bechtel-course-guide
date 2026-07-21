@@ -13,16 +13,29 @@ offline use** (the Reserve has patchy cell coverage).
 
 ## Features
 
-- **Plan mode** — tap the map to drop a pin, or “Drop point at my location”; add a
-  name, category, description, notes, and a trigger radius. Drag pins to reposition.
-- **Drive mode** — the map follows your GPS; when you get within a point’s radius,
-  a large passenger card appears with its description + notes, plus a “coming up”
-  list of the nearest points. Optional arrival chime. Keeps the screen awake.
+- **Drive mode (default)** — the app opens here. The map follows your GPS; when you
+  get within a point’s radius, a large passenger card appears with its description +
+  notes, plus a “coming up” list of the nearest points. Optional arrival chime. Keeps
+  the screen awake. Safe to share — no editing.
+- **Plan mode (password-protected)** — tap the map to drop a pin, or “Drop point at my
+  location”; add a name, category, description, notes, and a trigger radius. Drag pins
+  to reposition. Tap **🔒 Plan** and enter the password to unlock editing on that device
+  (a 🔓 button re-locks it). **New pins are provisional** — if you close the editor
+  without hitting **Save**, the pin is discarded.
+- **🧭 Guide — Course Planner + ETA** — pick an ordered set of stops and get the
+  **total distance and drive time**, computed along the Summit’s roads (bundled from
+  OpenStreetMap). Speed model: **20 mph** on roads, **5 mph** through activity zones
+  (youth present); per-leg breakdown, optional loop, and the route draws on the map.
+  A **road network overlay** (⚙ menu) reflects the current OSM roads. Route is stored
+  per-device and never touches the shared course.
 - **Offline** — installable to the home screen; caches the app and map tiles.
   A “Download this area for offline” button pre-fetches tiles around your points.
 - **Portable courses** — export/import the whole course as a `.json` file, so you
   can plan on a laptop and load it on the iPad (or share it).
 - Everything is stored **on the device** (IndexedDB). No server, no account.
+
+> **Guides:** see `Bechtel_Course_Guide_Quick_Start.pdf` (one-page) and
+> `Bechtel_Course_Guide_User_Guide.pdf` (full guide) in this folder.
 
 ---
 
