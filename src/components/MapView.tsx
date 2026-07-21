@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import L from "leaflet";
 import { MapContainer, TileLayer, Marker, Circle, Polyline, useMap, useMapEvents } from "react-leaflet";
 import type { Poi } from "../lib/types";
@@ -92,6 +92,58 @@ function FlyToSelected({ selectedId, pois }: { selectedId: string | null; pois: 
   return null;
 }
 
+function PoiMarkers({ pois, activeIds, selectedId, routeIndex, mode, onMarkerClick, onMarkerDrag }: {
+  pois: Poi[];
+  activeIds: Set<string>;
+  selectedId: string | null;
+  routeIndex: Map<string, number>;
+  mode: "edit" | "drive";
+  onMarkerClick: (id: string) => void;
+  onMarkerDrag: (id: string, lat: number, lng: number) => void;
+}) {
+  const map = useMap();
+  const [tick, setTick] = useState(0);
+  useMapEvents({ zoomend: () => setTick((t) => t + 1), resize: () => setTick((t) => t + 1) });
+  // Zoom-aware stacking: pins whose on-screen positions overlap are lifted so
+  // they sit above one another instead of piling on the same spot.
+  const stack = useMemo(() => {
+    const THRESH = 30; // px
+    const clusters: { x: number; y: number; n: number }[] = [];
+    const idx = new Map<string, number>();
+    for (const p of pois) {
+      const pt = map.latLngToContainerPoint([p.lat, p.lng]);
+      let placed = false;
+      for (const c of clusters) {
+        const dx = c.x - pt.x, dy = c.y - pt.y;
+        if (dx * dx + dy * dy <= THRESH * THRESH) { idx.set(p.id, c.n); c.n += 1; placed = true; break; }
+      }
+      if (!placed) { clusters.push({ x: pt.x, y: pt.y, n: 1 }); idx.set(p.id, 0); }
+    }
+    return idx;
+    // tick forces recompute after zoom/resize
+  }, [pois, map, tick]);
+
+  return (
+    <>
+      {pois.map((p) => (
+        <Marker
+          key={p.id}
+          position={[p.lat, p.lng]}
+          icon={poiIcon(p, activeIds.has(p.id), selectedId === p.id, routeIndex.get(p.id), stack.get(p.id) ?? 0)}
+          draggable={mode === "edit"}
+          eventHandlers={{
+            click: () => onMarkerClick(p.id),
+            dragend: (e) => {
+              const ll = (e.target as L.Marker).getLatLng();
+              onMarkerDrag(p.id, ll.lat, ll.lng);
+            },
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
 export default function MapView(props: Props) {
   const { pois, layerId, mode, fix, follow, center, zoom, selectedId, activeIds, showRadii } = props;
   const layer = useMemo(() => getLayer(layerId), [layerId]);
@@ -100,19 +152,6 @@ export default function MapView(props: Props) {
     (props.routeStopIds ?? []).forEach((id, i) => { if (!m.has(id)) m.set(id, i + 1); });
     return m;
   }, [props.routeStopIds]);
-  // Stack markers that share (nearly) the same location so they don't overlay.
-  const stackIndex = useMemo(() => {
-    const groups = new Map<string, string[]>();
-    for (const p of pois) {
-      const k = `${p.lat.toFixed(4)},${p.lng.toFixed(4)}`;
-      const arr = groups.get(k) ?? [];
-      arr.push(p.id);
-      groups.set(k, arr);
-    }
-    const idx = new Map<string, number>();
-    for (const arr of groups.values()) arr.forEach((id, i) => idx.set(id, i));
-    return idx;
-  }, [pois]);
 
   return (
     <MapContainer center={center} zoom={zoom} minZoom={11} maxZoom={21} zoomControl={false} className="h-full w-full" preferCanvas>
@@ -150,21 +189,15 @@ export default function MapView(props: Props) {
           />
         ))}
 
-      {pois.map((p) => (
-        <Marker
-          key={p.id}
-          position={[p.lat, p.lng]}
-          icon={poiIcon(p, activeIds.has(p.id), selectedId === p.id, routeIndex.get(p.id), stackIndex.get(p.id) ?? 0)}
-          draggable={mode === "edit"}
-          eventHandlers={{
-            click: () => props.onMarkerClick(p.id),
-            dragend: (e) => {
-              const ll = (e.target as L.Marker).getLatLng();
-              props.onMarkerDrag(p.id, ll.lat, ll.lng);
-            },
-          }}
-        />
-      ))}
+      <PoiMarkers
+        pois={pois}
+        activeIds={activeIds}
+        selectedId={selectedId}
+        routeIndex={routeIndex}
+        mode={mode}
+        onMarkerClick={props.onMarkerClick}
+        onMarkerDrag={props.onMarkerDrag}
+      />
 
       {fix && (
         <>
