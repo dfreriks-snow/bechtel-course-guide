@@ -21,6 +21,11 @@ export interface StarterPoi {
  * dragging the pin once you're on site.
  */
 export const BECHTEL_STARTER: StarterPoi[] = [
+  { name: "J.W. & Hazel Ruby WV Welcome Center", category: "landmark", radius: 100,
+    description: "West Virginia state welcome center at the gateway to the Summit Bechtel Reserve and New River Gorge.",
+    notes: "The J.W. & Hazel Ruby West Virginia Welcome Center — travel information, restrooms, and regional exhibits. A great first stop as you arrive. 55 Hazel Ruby Lane, Mt Hope, WV 25880.",
+    lat: 37.90675, lng: -81.17273 },
+
   { name: "SBR North Entrance", category: "landmark", radius: 120, approx: true,
     description: "Main north entrance to the Summit Bechtel Reserve, off Glen Jean.",
     notes: "Welcome to the Summit! The Reserve covers ~14,000 acres adjacent to the New River Gorge National Park & Preserve. (Location approximate — drag to adjust.)",
