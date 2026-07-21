@@ -8,6 +8,7 @@ export type PoiCategory =
   | "food"
   | "water"
   | "statue"
+  | "housing"
   | "blocked"
   | "parkwalk"
   | "other";
@@ -42,6 +43,7 @@ export const CATEGORIES: Record<PoiCategory, { label: string; color: string; emo
   food: { label: "Food", color: "#0891b2", emoji: "🍽️" },
   water: { label: "Water", color: "#38bdf8", emoji: "🌊" },
   statue: { label: "Statue", color: "#a16207", emoji: "🗿" },
+  housing: { label: "Housing", color: "#7c3aed", emoji: "🏨" },
   blocked: { label: "No-drive / blocked", color: "#dc2626", emoji: "✕" },
   parkwalk: { label: "Park & walk", color: "#16a34a", emoji: "✕" },
   other: { label: "Other", color: "#64748b", emoji: "•" },
