@@ -1,16 +1,24 @@
 // Road-network routing + ETA for the Summit Bechtel Reserve.
 // Builds a graph from the bundled OSM road segments and runs Dijkstra between
-// snapped stops. Speed model: 20 mph on roads, 5 mph within an activity zone.
+// snapped stops. Speed model: 15 mph on reserve roads, 20 mph on the approach
+// up to the North Entrance, 5 mph within an activity zone.
 // Zero external dependencies; fully offline.
 import { SBR_ROADS } from "../data/sbrRoads";
 
 export type LatLng = [number, number];
 
-const MPH_ROAD = 20;
+const MPH_ROAD = 15;      // inside the reserve (past the North Entrance)
+const MPH_APPROACH = 20;  // public approach road up to the North Entrance
 const MPH_SLOW = 5;
 const MPS = (mph: number) => mph * 0.44704; // miles/hr -> meters/sec
 const METERS_PER_MILE = 1609.344;
 const TRAFFIC_FACTOR = 1.2; // buffer for car/pedestrian traffic (applied silently)
+
+// 20 mph approach corridor: the road from the J.W. & Hazel Ruby WV Welcome
+// Center up to the SBR North Entrance. Everything else on-reserve is 15 mph.
+const APPROACH_ZONES: { lat: number; lng: number; radius: number }[] = [
+  { lat: 37.89718, lng: -81.16337, radius: 1700 },
+];
 
 export interface SlowZone { lat: number; lng: number; radius: number } // meters
 
@@ -189,8 +197,9 @@ export function computeRoute(stops: Stop[], zones: SlowZone[], blocked: SlowZone
       const midLat = (p1lat + p2lat) / 2, midLng = (p1lng + p2lng) / 2;
       const seg_slow = inSlowZone(midLat, midLng, zones);
       if (seg_slow) slow = true;
+      const mph = seg_slow ? MPH_SLOW : (inSlowZone(midLat, midLng, APPROACH_ZONES) ? MPH_APPROACH : MPH_ROAD);
       legMeters += d;
-      legSecs += d / MPS(seg_slow ? MPH_SLOW : MPH_ROAD);
+      legSecs += d / MPS(mph);
     }
     const legMiles = legMeters / METERS_PER_MILE;
     legSecs *= TRAFFIC_FACTOR;
