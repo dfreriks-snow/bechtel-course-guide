@@ -428,7 +428,7 @@ export default function App() {
               <option key={l.id} value={l.id}>{l.label}</option>
             ))}
           </select>
-          <button onClick={() => setDrawer(drawer === "route" ? "none" : "route")} className="rounded-xl border border-border bg-panel/90 px-3 py-2.5 text-sm text-pale shadow-lg backdrop-blur" title="Plan a course">🧭</button>
+          <button onClick={() => setDrawer(drawer === "route" ? "none" : "route")} className="rounded-xl border border-border bg-panel/90 px-3 py-2.5 text-sm text-pale shadow-lg backdrop-blur" title="Plan a course">🧭 Guide</button>
           <button onClick={() => setDrawer(drawer === "list" ? "none" : "list")} className="rounded-xl border border-border bg-panel/90 px-3 py-2.5 text-sm text-pale shadow-lg backdrop-blur">☰ {pois.length}</button>
           <button onClick={() => setDrawer(drawer === "menu" ? "none" : "menu")} className="rounded-xl border border-border bg-panel/90 px-3 py-2.5 text-sm text-pale shadow-lg backdrop-blur">⚙</button>
         </div>
