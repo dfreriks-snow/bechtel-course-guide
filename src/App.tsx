@@ -87,16 +87,42 @@ export default function App() {
   const [routeStops, setRouteStops] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("routeStops") || "[]"); } catch { return []; }
   });
+  const [timeBlocks, setTimeBlocks] = useState<Record<string, { minutes: number; label: string }>>(() => {
+    try { return JSON.parse(localStorage.getItem("routeTimeBlocks") || "{}"); } catch { return {}; }
+  });
   const [routeLoop, setRouteLoop] = useState<boolean>(() => { try { return localStorage.getItem("routeLoop") === "1"; } catch { return false; } });
   const [showRoads, setShowRoads] = useState<boolean>(() => { try { return localStorage.getItem("showRoads") === "1"; } catch { return false; } });
   useEffect(() => { try { localStorage.setItem("routeStops", JSON.stringify(routeStops)); } catch { /* ignore */ } }, [routeStops]);
+  useEffect(() => { try { localStorage.setItem("routeTimeBlocks", JSON.stringify(timeBlocks)); } catch { /* ignore */ } }, [timeBlocks]);
   useEffect(() => { try { localStorage.setItem("routeLoop", routeLoop ? "1" : "0"); } catch { /* ignore */ } }, [routeLoop]);
   useEffect(() => { try { localStorage.setItem("showRoads", showRoads ? "1" : "0"); } catch { /* ignore */ } }, [showRoads]);
   const roads = useMemo(() => roadPolylines(), []);
   const addStop = (id: string) => setRouteStops((s) => [...s, id]);
-  const removeStop = (i: number) => setRouteStops((s) => s.filter((_, idx) => idx !== i));
+  const removeStop = (i: number) => setRouteStops((s) => {
+    const id = s[i];
+    if (id && id.startsWith("time_")) setTimeBlocks((m) => { const n = { ...m }; delete n[id]; return n; });
+    return s.filter((_, idx) => idx !== i);
+  });
   const moveStop = (i: number, dir: -1 | 1) => setRouteStops((s) => { const n = [...s]; const j = i + dir; if (j < 0 || j >= n.length) return s; [n[i], n[j]] = [n[j], n[i]]; return n; });
-  const clearRoute = () => setRouteStops([]);
+  const clearRoute = () => { setRouteStops([]); setTimeBlocks({}); };
+  const addTimeBlock = () => {
+    const label = (window.prompt("Time block label (e.g., Lunch, Rest stop):", "Break") || "").trim() || "Break";
+    const minsStr = window.prompt("Minutes for this time block:", "15");
+    if (minsStr === null) return;
+    const minutes = Math.max(1, Math.round(Number(minsStr) || 0));
+    if (!minutes) return;
+    const id = `time_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    setTimeBlocks((m) => ({ ...m, [id]: { minutes, label } }));
+    setRouteStops((s) => [...s, id]);
+  };
+  const editTimeBlock = (id: string) => {
+    const cur = timeBlocks[id];
+    if (!cur) return;
+    const label = (window.prompt("Time block label:", cur.label) || cur.label).trim() || cur.label;
+    const minsStr = window.prompt("Minutes:", String(cur.minutes));
+    const minutes = Math.max(1, Math.round(Number(minsStr) || cur.minutes));
+    setTimeBlocks((m) => ({ ...m, [id]: { minutes, label } }));
+  };
   const routeCompute = useMemo(() => {
     const byId = new Map(pois.map((p) => [p.id, p]));
     const base = routeStops.map((id) => byId.get(id)).filter(Boolean) as Poi[];
@@ -355,7 +381,7 @@ export default function App() {
   const saveCurrentCourse = async (name: string) => {
     const clean = (pendingNewId ? pois.filter((x) => x.id !== pendingNewId) : pois);
     if (clean.length === 0) { showToast("Add some points before saving a course."); return; }
-    const list = await saveNamedCourse(name || settings.courseName, clean, routeStops, routeLoop);
+    const list = await saveNamedCourse(name || settings.courseName, clean, routeStops, routeLoop, timeBlocks);
     setSavedCourses(list);
     setSaveName("");
     if (name.trim()) setSettings((s) => ({ ...s, courseName: name.trim() }));
@@ -367,9 +393,11 @@ export default function App() {
     savePois(sorted);
     setSettings((s) => ({ ...s, courseName: course.name }));
     pushMany(sorted);
-    // Restore the planned route too, if the course carried one.
+    // Restore the planned route + time blocks too, if the course carried them.
+    const tb = course.timeBlocks ?? {};
+    setTimeBlocks(tb);
     const ids = new Set(sorted.map((p) => p.id));
-    setRouteStops((course.stops ?? []).filter((id) => ids.has(id)));
+    setRouteStops((course.stops ?? []).filter((id) => ids.has(id) || tb[id]));
     setRouteLoop(!!course.loop);
     showToast(`Loaded course “${course.name}” (${sorted.length} points).`);
     setDrawer("none");
@@ -430,7 +458,7 @@ export default function App() {
         roads={roads}
         showRoads={showRoads}
         routePath={routeCompute.result?.path}
-        routeStopIds={drawer === "route" ? routeStops : undefined}
+        routeStopIds={drawer === "route" ? routeStops.filter((id) => !id.startsWith("time_")) : undefined}
         onMapClick={(lat: number, lng: number) => { if (mode === "edit") addPoiAt(lat, lng); }}
         onMarkerClick={(id) => {
           if (drawer === "route") {
@@ -592,11 +620,14 @@ export default function App() {
             orderedNames={routeCompute.orderedNames}
             result={routeCompute.result}
             loop={routeLoop}
+            timeBlocks={timeBlocks}
             onAdd={addStop}
             onRemove={removeStop}
             onMove={moveStop}
             onClear={clearRoute}
             onToggleLoop={() => setRouteLoop((v) => !v)}
+            onAddTimeBlock={addTimeBlock}
+            onEditTimeBlock={editTimeBlock}
             onClose={() => setDrawer("none")}
             canManage={planUnlocked}
             savedCourses={savedCourses}

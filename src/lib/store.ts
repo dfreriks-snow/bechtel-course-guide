@@ -52,8 +52,9 @@ export interface SavedCourse {
   name: string;
   savedAt: number;
   pois: Poi[];
-  stops?: string[];  // planned route (ordered POI ids), if any
+  stops?: string[];  // planned route (ordered POI ids + time-block ids), if any
   loop?: boolean;    // route loops back to start
+  timeBlocks?: Record<string, { minutes: number; label: string }>; // standalone time entries
 }
 
 export async function loadSavedCourses(): Promise<SavedCourse[]> {
@@ -62,7 +63,13 @@ export async function loadSavedCourses(): Promise<SavedCourse[]> {
 }
 
 /** Save (or overwrite by matching name, case-insensitive) a named course. Returns the updated list. */
-export async function saveNamedCourse(name: string, pois: Poi[], stops: string[] = [], loop = false): Promise<SavedCourse[]> {
+export async function saveNamedCourse(
+  name: string,
+  pois: Poi[],
+  stops: string[] = [],
+  loop = false,
+  timeBlocks: Record<string, { minutes: number; label: string }> = {},
+): Promise<SavedCourse[]> {
   const trimmed = name.trim() || "Untitled course";
   const list = (await store.getItem<SavedCourse[]>(SAVED_COURSES_KEY)) ?? [];
   const snapshot = pois.map((p) => ({ ...p }));
@@ -71,9 +78,10 @@ export async function saveNamedCourse(name: string, pois: Poi[], stops: string[]
     existing.pois = snapshot;
     existing.stops = [...stops];
     existing.loop = loop;
+    existing.timeBlocks = { ...timeBlocks };
     existing.savedAt = Date.now();
   } else {
-    list.push({ id: `course_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`, name: trimmed, savedAt: Date.now(), pois: snapshot, stops: [...stops], loop });
+    list.push({ id: `course_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`, name: trimmed, savedAt: Date.now(), pois: snapshot, stops: [...stops], loop, timeBlocks: { ...timeBlocks } });
   }
   await store.setItem(SAVED_COURSES_KEY, list);
   return list.sort((a, b) => b.savedAt - a.savedAt);

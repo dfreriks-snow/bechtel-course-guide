@@ -17,6 +17,9 @@ interface Props {
   onClear: () => void;
   onToggleLoop: () => void;
   onClose: () => void;
+  timeBlocks: Record<string, { minutes: number; label: string }>;
+  onAddTimeBlock: () => void;
+  onEditTimeBlock: (id: string) => void;
   canManage: boolean;
   savedCourses: SavedCourse[];
   courseName: string;
@@ -37,9 +40,21 @@ export default function RoutePanel(props: Props) {
     [props.savedCourses, props.courseName]
   );
   const stopSeconds = useMemo(
-    () => stops.reduce((sum, id) => sum + (byId.get(id)?.dwellMin ?? 0) * 60, 0),
-    [stops, byId]
+    () => stops.reduce((sum, id) => {
+      const p = byId.get(id);
+      if (p) return sum + (p.dwellMin ?? 0) * 60;
+      const tb = props.timeBlocks[id];
+      return tb ? sum + tb.minutes * 60 : sum;
+    }, 0),
+    [stops, byId, props.timeBlocks]
   );
+  // Build render rows, numbering only the POI stops (matches the map badges).
+  let poiSeq = 0;
+  const rows = stops.map((id, i) => {
+    const p = byId.get(id);
+    if (p) { const legIndex = poiSeq; poiSeq += 1; return { id, i, poi: p, badge: poiSeq, legIndex }; }
+    return { id, i, time: props.timeBlocks[id] };
+  });
 
   return (
     <div className="flex h-full flex-col bg-panel text-pale">
@@ -90,21 +105,35 @@ export default function RoutePanel(props: Props) {
       <div className="flex-1 overflow-y-auto px-3 py-3">
         {stops.length === 0 && <p className="px-1 text-sm text-muted">No stops yet. Tap points on the map, or use the dropdown below.</p>}
         <ol className="space-y-1.5">
-          {stops.map((id, i) => {
-            const p = byId.get(id);
-            const leg = result?.legs[i]; // travel from this stop to the next
+          {rows.map((r) => {
+            if ("time" in r) {
+              const tb = r.time;
+              return (
+                <li key={`${r.id}-${r.i}`} className="rounded-lg border border-sky-500/40 bg-sky-500/10 p-2">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-sky-400 text-xs font-bold text-ink">⏱</span>
+                    <button onClick={() => props.onEditTimeBlock(r.id)} className="min-w-0 flex-1 truncate text-left text-sm">
+                      {tb ? <>{tb.label} — <span className="text-sky-300">{tb.minutes} min</span></> : "(time block)"}
+                    </button>
+                    <button onClick={() => props.onMove(r.i, -1)} disabled={r.i === 0} className="px-1.5 text-muted disabled:opacity-30">▲</button>
+                    <button onClick={() => props.onMove(r.i, 1)} disabled={r.i === stops.length - 1} className="px-1.5 text-muted disabled:opacity-30">▼</button>
+                    <button onClick={() => props.onRemove(r.i)} className="px-1.5 text-red-400">✕</button>
+                  </div>
+                </li>
+              );
+            }
+            const p = r.poi;
+            const leg = result?.legs[r.legIndex]; // drive from this stop to the next stop
             return (
-              <li key={`${id}-${i}`} className="rounded-lg border border-border bg-black/10 p-2">
+              <li key={`${r.id}-${r.i}`} className="rounded-lg border border-border bg-black/10 p-2">
                 <div className="flex items-center gap-2">
-                  <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-sun text-xs font-bold text-ink">{i + 1}</span>
-                  <span className="flex-1 truncate text-sm">
-                    {p ? `${CATEGORIES[p.category].emoji} ${p.name}` : "(deleted point)"}
-                  </span>
-                  <button onClick={() => props.onMove(i, -1)} disabled={i === 0} className="px-1.5 text-muted disabled:opacity-30">▲</button>
-                  <button onClick={() => props.onMove(i, 1)} disabled={i === stops.length - 1} className="px-1.5 text-muted disabled:opacity-30">▼</button>
-                  <button onClick={() => props.onRemove(i)} className="px-1.5 text-red-400">✕</button>
+                  <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-sun text-xs font-bold text-ink">{r.badge}</span>
+                  <span className="flex-1 truncate text-sm">{CATEGORIES[p.category].emoji} {p.name}</span>
+                  <button onClick={() => props.onMove(r.i, -1)} disabled={r.i === 0} className="px-1.5 text-muted disabled:opacity-30">▲</button>
+                  <button onClick={() => props.onMove(r.i, 1)} disabled={r.i === stops.length - 1} className="px-1.5 text-muted disabled:opacity-30">▼</button>
+                  <button onClick={() => props.onRemove(r.i)} className="px-1.5 text-red-400">✕</button>
                 </div>
-                {p?.dwellMin ? (
+                {p.dwellMin ? (
                   <div className="mt-1 pl-8 text-[11px] text-sun">⏱ {p.dwellMin} min stop</div>
                 ) : null}
                 {leg && (
@@ -117,7 +146,7 @@ export default function RoutePanel(props: Props) {
               </li>
             );
           })}
-          {loop && stops.length >= 2 && orderedNames.length > stops.length && (
+          {loop && poiSeq >= 2 && orderedNames.length > poiSeq && (
             <li className="pl-8 text-[11px] text-muted">↩ return to start ({orderedNames[0]})</li>
           )}
         </ol>
@@ -142,6 +171,9 @@ export default function RoutePanel(props: Props) {
             <option key={p.id} value={p.id}>{CATEGORIES[p.category].emoji} {p.name}</option>
           ))}
         </select>
+        <button onClick={props.onAddTimeBlock} className="w-full rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-2.5 text-sm font-semibold text-sky-300 hover:bg-sky-500/20">
+          ⏱ Add time block…
+        </button>
         {stops.length > 0 && (
           <button onClick={props.onClear} className="w-full rounded-lg border border-border px-4 py-2 text-sm text-muted hover:bg-white/5">
             Clear course
