@@ -26,13 +26,17 @@ interface Props {
   onMarkerDrag: (id: string, lat: number, lng: number) => void;
 }
 
-function poiIcon(poi: Poi, active: boolean, selected: boolean, routeNum?: number): L.DivIcon {
+function poiIcon(poi: Poi, active: boolean, selected: boolean, routeNum?: number, stack = 0): L.DivIcon {
   const c = CATEGORIES[poi.category];
   const inRoute = routeNum != null;
   const ring = active || inRoute
     ? "box-shadow:0 0 0 3px #f5b301,0 0 12px 3px rgba(245,179,1,.65);"
     : selected ? "box-shadow:0 0 0 3px #fff;" : "box-shadow:0 2px 6px rgba(0,0,0,.5);";
   const size = active ? 40 : 32;
+  // Stacked (overlapping) markers are lifted so they sit above one another
+  // instead of overlaying at the same point.
+  const STACK_STEP = 34;
+  const anchorY = size + stack * STACK_STEP;
   // No-drive / park-and-walk render as a bold colored X on a white pin.
   const isX = poi.category === "blocked" || poi.category === "parkwalk";
   const bg = isX ? "#ffffff" : c.color;
@@ -48,7 +52,7 @@ function poiIcon(poi: Poi, active: boolean, selected: boolean, routeNum?: number
     html: `<div style="position:relative;width:${size}px;height:${size}px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${bg};border:2px solid ${bd};${ring}display:flex;align-items:center;justify-content:center;">
       <span style="transform:rotate(45deg);color:${glyph};${glyphWeight}font-size:${glyphSize}px;line-height:1;">${c.emoji}</span>${badge}</div>`,
     iconSize: [size, size],
-    iconAnchor: [size / 2, size],
+    iconAnchor: [size / 2, anchorY],
   });
 }
 
@@ -96,6 +100,19 @@ export default function MapView(props: Props) {
     (props.routeStopIds ?? []).forEach((id, i) => { if (!m.has(id)) m.set(id, i + 1); });
     return m;
   }, [props.routeStopIds]);
+  // Stack markers that share (nearly) the same location so they don't overlay.
+  const stackIndex = useMemo(() => {
+    const groups = new Map<string, string[]>();
+    for (const p of pois) {
+      const k = `${p.lat.toFixed(4)},${p.lng.toFixed(4)}`;
+      const arr = groups.get(k) ?? [];
+      arr.push(p.id);
+      groups.set(k, arr);
+    }
+    const idx = new Map<string, number>();
+    for (const arr of groups.values()) arr.forEach((id, i) => idx.set(id, i));
+    return idx;
+  }, [pois]);
 
   return (
     <MapContainer center={center} zoom={zoom} minZoom={11} maxZoom={21} zoomControl={false} className="h-full w-full" preferCanvas>
@@ -137,7 +154,7 @@ export default function MapView(props: Props) {
         <Marker
           key={p.id}
           position={[p.lat, p.lng]}
-          icon={poiIcon(p, activeIds.has(p.id), selectedId === p.id, routeIndex.get(p.id))}
+          icon={poiIcon(p, activeIds.has(p.id), selectedId === p.id, routeIndex.get(p.id), stackIndex.get(p.id) ?? 0)}
           draggable={mode === "edit"}
           eventHandlers={{
             click: () => props.onMarkerClick(p.id),
