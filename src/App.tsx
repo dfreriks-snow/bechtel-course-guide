@@ -600,6 +600,7 @@ export default function App() {
             onClose={() => setDrawer("none")}
             canManage={planUnlocked}
             savedCourses={savedCourses}
+            courseName={settings.courseName}
             onSaveCourse={saveCoursePrompt}
             onLoadCourse={loadNamedCourse}
             onDeleteCourse={removeNamedCourse}

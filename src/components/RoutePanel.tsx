@@ -19,6 +19,7 @@ interface Props {
   onClose: () => void;
   canManage: boolean;
   savedCourses: SavedCourse[];
+  courseName: string;
   onSaveCourse: () => void;
   onLoadCourse: (course: SavedCourse) => void;
   onDeleteCourse: (id: string) => void;
@@ -31,13 +32,28 @@ export default function RoutePanel(props: Props) {
     () => pois.slice().sort((a, b) => a.name.localeCompare(b.name)),
     [pois]
   );
+  const isSaved = useMemo(
+    () => props.savedCourses.some((c) => c.name.toLowerCase() === props.courseName.trim().toLowerCase()),
+    [props.savedCourses, props.courseName]
+  );
 
   return (
     <div className="flex h-full flex-col bg-panel text-pale">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <h2 className="text-base font-semibold">🧭 Plan a Course</h2>
-        <button onClick={props.onClose} className="rounded-lg px-2 py-1 text-sm text-muted hover:bg-white/5">✕</button>
+      <div className="flex items-start justify-between border-b border-border px-4 py-3">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold">🧭 Plan a Course</h2>
+          {props.courseName.trim() && (
+            <p className="mt-0.5 truncate text-xs">
+              <span className="text-muted">Course: </span>
+              <span className="font-semibold text-pale">{props.courseName}</span>
+              {isSaved
+                ? <span className="ml-1 rounded bg-sun/20 px-1 text-[10px] font-semibold text-sun">SAVED</span>
+                : <span className="ml-1 rounded bg-white/10 px-1 text-[10px] text-muted">unsaved</span>}
+            </p>
+          )}
+        </div>
+        <button onClick={props.onClose} className="flex-none rounded-lg px-2 py-1 text-sm text-muted hover:bg-white/5">✕</button>
       </div>
 
       {/* Totals */}
