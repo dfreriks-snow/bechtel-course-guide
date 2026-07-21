@@ -20,19 +20,26 @@ interface Props {
   roads?: [number, number][][];
   showRoads?: boolean;
   routePath?: [number, number][];
+  routeStopIds?: string[];
   onMapClick: (lat: number, lng: number) => void;
   onMarkerClick: (id: string) => void;
   onMarkerDrag: (id: string, lat: number, lng: number) => void;
 }
 
-function poiIcon(poi: Poi, active: boolean, selected: boolean): L.DivIcon {
+function poiIcon(poi: Poi, active: boolean, selected: boolean, routeNum?: number): L.DivIcon {
   const c = CATEGORIES[poi.category];
-  const ring = active ? "box-shadow:0 0 0 4px rgba(245,179,1,.9),0 0 14px 4px rgba(245,179,1,.7);" : selected ? "box-shadow:0 0 0 3px #fff;" : "box-shadow:0 2px 6px rgba(0,0,0,.5);";
+  const inRoute = routeNum != null;
+  const ring = active || inRoute
+    ? "box-shadow:0 0 0 3px #f5b301,0 0 12px 3px rgba(245,179,1,.65);"
+    : selected ? "box-shadow:0 0 0 3px #fff;" : "box-shadow:0 2px 6px rgba(0,0,0,.5);";
   const size = active ? 40 : 32;
+  const badge = inRoute
+    ? `<div style="position:absolute;top:-9px;right:-9px;transform:rotate(45deg);min-width:18px;height:18px;padding:0 3px;border-radius:9px;background:#f5b301;color:#12211a;border:2px solid #fff;font-size:11px;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.5);">${routeNum}</div>`
+    : "";
   return L.divIcon({
     className: "",
-    html: `<div style="width:${size}px;height:${size}px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${c.color};border:2px solid #fff;${ring}display:flex;align-items:center;justify-content:center;">
-      <span style="transform:rotate(45deg);font-size:${active ? 18 : 15}px;line-height:1;">${c.emoji}</span></div>`,
+    html: `<div style="position:relative;width:${size}px;height:${size}px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${c.color};border:2px solid #fff;${ring}display:flex;align-items:center;justify-content:center;">
+      <span style="transform:rotate(45deg);font-size:${active ? 18 : 15}px;line-height:1;">${c.emoji}</span>${badge}</div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size],
   });
@@ -77,6 +84,11 @@ function FlyToSelected({ selectedId, pois }: { selectedId: string | null; pois: 
 export default function MapView(props: Props) {
   const { pois, layerId, mode, fix, follow, center, zoom, selectedId, activeIds, showRadii } = props;
   const layer = useMemo(() => getLayer(layerId), [layerId]);
+  const routeIndex = useMemo(() => {
+    const m = new Map<string, number>();
+    (props.routeStopIds ?? []).forEach((id, i) => { if (!m.has(id)) m.set(id, i + 1); });
+    return m;
+  }, [props.routeStopIds]);
 
   return (
     <MapContainer center={center} zoom={zoom} minZoom={11} maxZoom={21} zoomControl={false} className="h-full w-full" preferCanvas>
@@ -118,7 +130,7 @@ export default function MapView(props: Props) {
         <Marker
           key={p.id}
           position={[p.lat, p.lng]}
-          icon={poiIcon(p, activeIds.has(p.id), selectedId === p.id)}
+          icon={poiIcon(p, activeIds.has(p.id), selectedId === p.id, routeIndex.get(p.id))}
           draggable={mode === "edit"}
           eventHandlers={{
             click: () => props.onMarkerClick(p.id),

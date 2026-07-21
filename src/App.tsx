@@ -367,8 +367,15 @@ export default function App() {
         roads={roads}
         showRoads={showRoads}
         routePath={routeCompute.result?.path}
+        routeStopIds={drawer === "route" ? routeStops : undefined}
         onMapClick={(lat: number, lng: number) => { if (mode === "edit") addPoiAt(lat, lng); }}
         onMarkerClick={(id) => {
+          if (drawer === "route") {
+            addStop(id);
+            const p = pois.find((x) => x.id === id);
+            showToast(p ? `Added “${p.name}” to course` : "Added to course");
+            return;
+          }
           setSelectedId(id);
           if (mode === "edit") setEditingId(id);
         }}

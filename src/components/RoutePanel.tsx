@@ -57,7 +57,7 @@ export default function RoutePanel(props: Props) {
 
       {/* Ordered stops */}
       <div className="flex-1 overflow-y-auto px-3 py-3">
-        {stops.length === 0 && <p className="px-1 text-sm text-muted">No stops yet. Add them below.</p>}
+        {stops.length === 0 && <p className="px-1 text-sm text-muted">No stops yet. Tap points on the map, or use the dropdown below.</p>}
         <ol className="space-y-1.5">
           {stops.map((id, i) => {
             const p = byId.get(id);
@@ -95,6 +95,9 @@ export default function RoutePanel(props: Props) {
           <input type="checkbox" checked={loop} onChange={props.onToggleLoop} />
           Loop back to the starting point
         </label>
+        <p className="text-[11px] leading-snug text-muted">
+          Tap points on the map to add them, or use the dropdown. Use ▲▼ to reorder.
+        </p>
         <select
           value=""
           onChange={(e) => { if (e.target.value) props.onAdd(e.target.value); }}
