@@ -105,14 +105,11 @@ export default function App() {
   });
   const moveStop = (i: number, dir: -1 | 1) => setRouteStops((s) => { const n = [...s]; const j = i + dir; if (j < 0 || j >= n.length) return s; [n[i], n[j]] = [n[j], n[i]]; return n; });
   const clearRoute = () => { setRouteStops([]); setTimeBlocks({}); };
-  const addTimeBlock = () => {
-    const label = (window.prompt("Time block label (e.g., Lunch, Rest stop):", "Break") || "").trim() || "Break";
-    const minsStr = window.prompt("Minutes for this time block:", "15");
-    if (minsStr === null) return;
-    const minutes = Math.max(1, Math.round(Number(minsStr) || 0));
-    if (!minutes) return;
+  const addTimeBlock = (minutes: number, label = "Explore/View") => {
+    const mins = Math.max(1, Math.round(minutes || 0));
+    if (!mins) return;
     const id = `time_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
-    setTimeBlocks((m) => ({ ...m, [id]: { minutes, label } }));
+    setTimeBlocks((m) => ({ ...m, [id]: { minutes: mins, label } }));
     setRouteStops((s) => [...s, id]);
   };
   const editTimeBlock = (id: string) => {

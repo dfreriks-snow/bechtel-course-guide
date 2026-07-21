@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { Poi } from "../lib/types";
 import { CATEGORIES } from "../lib/types";
 import type { RouteResult } from "../lib/routing";
@@ -18,7 +18,7 @@ interface Props {
   onToggleLoop: () => void;
   onClose: () => void;
   timeBlocks: Record<string, { minutes: number; label: string }>;
-  onAddTimeBlock: () => void;
+  onAddTimeBlock: (minutes: number) => void;
   onEditTimeBlock: (id: string) => void;
   canManage: boolean;
   savedCourses: SavedCourse[];
@@ -30,6 +30,7 @@ interface Props {
 
 export default function RoutePanel(props: Props) {
   const { pois, stops, orderedNames, result, loop } = props;
+  const [exploreMin, setExploreMin] = useState(5);
   const byId = useMemo(() => new Map(pois.map((p) => [p.id, p])), [pois]);
   const available = useMemo(
     () => pois.slice().sort((a, b) => a.name.localeCompare(b.name)),
@@ -161,6 +162,19 @@ export default function RoutePanel(props: Props) {
         <p className="text-[11px] leading-snug text-muted">
           Tap points on the map to add them, or use the dropdown. Use ▲▼ to reorder.
         </p>
+        <div className="flex items-center gap-2 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-2">
+          <span className="text-sm font-semibold text-sky-200">⏱ Explore / View</span>
+          <input
+            type="number"
+            min={1}
+            max={480}
+            value={exploreMin}
+            onChange={(e) => setExploreMin(Math.max(1, Math.round(Number(e.target.value) || 0)))}
+            className="w-14 rounded border border-border bg-black/30 px-2 py-1 text-sm text-pale focus:border-sun focus:outline-none"
+          />
+          <span className="text-xs text-muted">min</span>
+          <button onClick={() => props.onAddTimeBlock(exploreMin)} className="ml-auto rounded-lg border border-sky-500/50 bg-sky-500/20 px-3 py-1.5 text-sm font-semibold text-sky-100 hover:bg-sky-500/30">➕ Add</button>
+        </div>
         <select
           value=""
           onChange={(e) => { if (e.target.value) props.onAdd(e.target.value); }}
@@ -171,9 +185,6 @@ export default function RoutePanel(props: Props) {
             <option key={p.id} value={p.id}>{CATEGORIES[p.category].emoji} {p.name}</option>
           ))}
         </select>
-        <button onClick={props.onAddTimeBlock} className="w-full rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-2.5 text-sm font-semibold text-sky-300 hover:bg-sky-500/20">
-          ⏱ Add time block…
-        </button>
         {stops.length > 0 && (
           <button onClick={props.onClear} className="w-full rounded-lg border border-border px-4 py-2 text-sm text-muted hover:bg-white/5">
             Clear course
