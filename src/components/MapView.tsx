@@ -26,21 +26,18 @@ interface Props {
   onMarkerDrag: (id: string, lat: number, lng: number) => void;
 }
 
-function poiIcon(poi: Poi, active: boolean, selected: boolean, routeNum?: number, stack = 0): L.DivIcon {
+function poiIcon(poi: Poi, active: boolean, selected: boolean, routeNum?: number, compact = false): L.DivIcon {
   const c = CATEGORIES[poi.category];
   const inRoute = routeNum != null;
   const ring = active || inRoute
     ? "box-shadow:0 0 0 3px #f5b301,0 0 12px 3px rgba(245,179,1,.65);"
     : selected ? "box-shadow:0 0 0 3px #fff;" : "box-shadow:0 2px 6px rgba(0,0,0,.5);";
   const size = active ? 40 : 32;
-  // Stacked (overlapping) markers are lifted so they sit above one another
-  // instead of overlaying at the same point.
-  const STACK_STEP = 34;
-  const anchorY = size + stack * STACK_STEP;
 
-  // Platinum Lounge (VIP): a diamond on a platinum hexagon — distinct, larger shape.
+  // Platinum Lounge (VIP): a diamond on a platinum hexagon — distinct shape, smaller on phones.
   if (poi.category === "platinum") {
-    const pSize = active ? 70 : 60;
+    const pSize = compact ? (active ? 52 : 44) : (active ? 70 : 60);
+    const dia = compact ? (active ? 26 : 22) : (active ? 34 : 29);
     const hex = "polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)";
     const glow = active || inRoute
       ? "filter:drop-shadow(0 0 3px #f5b301) drop-shadow(0 0 7px rgba(245,179,1,.85));"
@@ -51,9 +48,9 @@ function poiIcon(poi: Poi, active: boolean, selected: boolean, routeNum?: number
     const html = `<div style="position:relative;width:${pSize}px;height:${pSize}px;${glow}">
       <div style="position:absolute;inset:0;clip-path:${hex};background:#6b7178;"></div>
       <div style="position:absolute;inset:2px;clip-path:${hex};background:linear-gradient(135deg,#f6f7f8 0%,#c4cad0 48%,#8f969e 100%);"></div>
-      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:${active ? 34 : 29}px;">💎</div>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:${dia}px;">💎</div>
       ${pbadge}</div>`;
-    return L.divIcon({ className: "", html, iconSize: [pSize, pSize], iconAnchor: [pSize / 2, pSize / 2 + stack * STACK_STEP] });
+    return L.divIcon({ className: "", html, iconSize: [pSize, pSize], iconAnchor: [pSize / 2, pSize / 2] });
   }
 
   // No-drive / park-and-walk render as a bold colored X on a white pin.
@@ -71,7 +68,7 @@ function poiIcon(poi: Poi, active: boolean, selected: boolean, routeNum?: number
     html: `<div style="position:relative;width:${size}px;height:${size}px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${bg};border:2px solid ${bd};${ring}display:flex;align-items:center;justify-content:center;">
       <span style="transform:rotate(45deg);color:${glyph};${glyphWeight}font-size:${glyphSize}px;line-height:1;">${c.emoji}</span>${badge}</div>`,
     iconSize: [size, size],
-    iconAnchor: [size / 2, anchorY],
+    iconAnchor: [size / 2, size],
   });
 }
 
@@ -111,44 +108,23 @@ function FlyToSelected({ selectedId, pois }: { selectedId: string | null; pois: 
   return null;
 }
 
-function PoiMarkers({ pois, activeIds, selectedId, routeIndex, mode, onMarkerClick, onMarkerDrag }: {
+function PoiMarkers({ pois, activeIds, selectedId, routeIndex, mode, compact, onMarkerClick, onMarkerDrag }: {
   pois: Poi[];
   activeIds: Set<string>;
   selectedId: string | null;
   routeIndex: Map<string, number>;
   mode: "edit" | "drive";
+  compact: boolean;
   onMarkerClick: (id: string) => void;
   onMarkerDrag: (id: string, lat: number, lng: number) => void;
 }) {
-  const map = useMap();
-  const [tick, setTick] = useState(0);
-  useMapEvents({ zoomend: () => setTick((t) => t + 1), resize: () => setTick((t) => t + 1) });
-  // Zoom-aware stacking: pins whose on-screen positions overlap are lifted so
-  // they sit above one another instead of piling on the same spot.
-  const stack = useMemo(() => {
-    const THRESH = 30; // px
-    const clusters: { x: number; y: number; n: number }[] = [];
-    const idx = new Map<string, number>();
-    for (const p of pois) {
-      const pt = map.latLngToContainerPoint([p.lat, p.lng]);
-      let placed = false;
-      for (const c of clusters) {
-        const dx = c.x - pt.x, dy = c.y - pt.y;
-        if (dx * dx + dy * dy <= THRESH * THRESH) { idx.set(p.id, c.n); c.n += 1; placed = true; break; }
-      }
-      if (!placed) { clusters.push({ x: pt.x, y: pt.y, n: 1 }); idx.set(p.id, 0); }
-    }
-    return idx;
-    // tick forces recompute after zoom/resize
-  }, [pois, map, tick]);
-
   return (
     <>
       {pois.map((p) => (
         <Marker
           key={p.id}
           position={[p.lat, p.lng]}
-          icon={poiIcon(p, activeIds.has(p.id), selectedId === p.id, routeIndex.get(p.id), stack.get(p.id) ?? 0)}
+          icon={poiIcon(p, activeIds.has(p.id), selectedId === p.id, routeIndex.get(p.id), compact)}
           draggable={mode === "edit"}
           eventHandlers={{
             click: () => onMarkerClick(p.id),
@@ -171,6 +147,13 @@ export default function MapView(props: Props) {
     (props.routeStopIds ?? []).forEach((id, i) => { if (!m.has(id)) m.set(id, i + 1); });
     return m;
   }, [props.routeStopIds]);
+  const [compact, setCompact] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 640px)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 640px)");
+    const on = () => setCompact(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
 
   return (
     <MapContainer center={center} zoom={zoom} minZoom={11} maxZoom={21} zoomControl={false} className="h-full w-full" preferCanvas>
@@ -214,6 +197,7 @@ export default function MapView(props: Props) {
         selectedId={selectedId}
         routeIndex={routeIndex}
         mode={mode}
+        compact={compact}
         onMarkerClick={props.onMarkerClick}
         onMarkerDrag={props.onMarkerDrag}
       />

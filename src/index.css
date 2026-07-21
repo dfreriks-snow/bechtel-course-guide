@@ -16,6 +16,15 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* iOS safe-area helpers (notch / status bar / home indicator).
+   Applied on top of Tailwind's p-3 so they only add inset on devices that need it. */
+.safe-top { padding-top: max(0.75rem, env(safe-area-inset-top)); }
+.safe-bottom { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
+.safe-x {
+  padding-left: max(0.75rem, env(safe-area-inset-left));
+  padding-right: max(0.75rem, env(safe-area-inset-right));
+}
+
 /* Leaflet must fill its container */
 .leaflet-container {
   width: 100%;

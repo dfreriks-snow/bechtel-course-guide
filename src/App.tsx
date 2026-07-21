@@ -477,18 +477,18 @@ export default function App() {
       />
 
       {/* Top bar */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-[1000] flex items-start justify-between gap-2 p-3">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-[1000] flex items-start justify-between gap-2 p-3 safe-top safe-x">
         <div className="pointer-events-auto flex flex-col items-start gap-2">
           <div className="flex overflow-hidden rounded-xl border border-border bg-panel/90 shadow-lg backdrop-blur">
             <button
               onClick={() => { if (planUnlocked) setMode("edit"); else { setPwInput(""); setPwError(false); setShowPw(true); } }}
-              className={`px-4 py-2.5 text-sm font-semibold ${mode === "edit" ? "bg-sun text-ink" : "text-muted"}`}
+              className={`px-3 py-2 text-sm font-semibold sm:px-4 sm:py-2.5 ${mode === "edit" ? "bg-sun text-ink" : "text-muted"}`}
             >
               {planUnlocked ? "✎ Plan" : "🔒 Plan"}
             </button>
             <button
               onClick={() => { setMode("drive"); setFollow(true); }}
-              className={`px-4 py-2.5 text-sm font-semibold ${mode === "drive" ? "bg-sun text-ink" : "text-muted"}`}
+              className={`px-3 py-2 text-sm font-semibold sm:px-4 sm:py-2.5 ${mode === "drive" ? "bg-sun text-ink" : "text-muted"}`}
             >
               ▶ Drive
             </button>
@@ -519,26 +519,26 @@ export default function App() {
           </div>
         </div>
 
-        <div className="pointer-events-auto flex items-center gap-2">
+        <div className="pointer-events-auto flex items-center gap-1.5 sm:gap-2">
           <select
             value={settings.layerId}
             onChange={(e) => setSettings((s) => ({ ...s, layerId: e.target.value }))}
-            className="rounded-xl border border-border bg-panel/90 px-3 py-2.5 text-sm text-pale shadow-lg backdrop-blur"
+            className="hidden rounded-xl border border-border bg-panel/90 px-3 py-2.5 text-sm text-pale shadow-lg backdrop-blur sm:block"
           >
             {TILE_LAYERS.map((l) => (
               <option key={l.id} value={l.id}>{l.label}</option>
             ))}
           </select>
-          <button onClick={() => { setSearch((s) => !s); setSearchQ(""); }} className={`rounded-xl border border-border px-3 py-2.5 text-sm shadow-lg backdrop-blur ${search ? "bg-sun text-ink" : "bg-panel/90 text-pale"}`} title="Search locations">🔍</button>
-          <button onClick={() => setDrawer(drawer === "route" ? "none" : "route")} className="rounded-xl border border-border bg-panel/90 px-3 py-2.5 text-sm text-pale shadow-lg backdrop-blur" title="Plan a course">🧭 Guide</button>
-          <button onClick={() => setDrawer(drawer === "list" ? "none" : "list")} className="rounded-xl border border-border bg-panel/90 px-3 py-2.5 text-sm text-pale shadow-lg backdrop-blur">☰ {pois.length}</button>
-          <button onClick={() => setDrawer(drawer === "menu" ? "none" : "menu")} className="rounded-xl border border-border bg-panel/90 px-3 py-2.5 text-sm text-pale shadow-lg backdrop-blur">⚙</button>
+          <button onClick={() => { setSearch((s) => !s); setSearchQ(""); }} className={`rounded-xl border border-border px-2.5 py-2 text-sm shadow-lg backdrop-blur sm:px-3 sm:py-2.5 ${search ? "bg-sun text-ink" : "bg-panel/90 text-pale"}`} title="Search locations">🔍</button>
+          <button onClick={() => setDrawer(drawer === "route" ? "none" : "route")} className="rounded-xl border border-border bg-panel/90 px-2.5 py-2 text-sm text-pale shadow-lg backdrop-blur sm:px-3 sm:py-2.5" title="Plan a course">🧭<span className="hidden sm:inline"> Guide</span></button>
+          <button onClick={() => setDrawer(drawer === "list" ? "none" : "list")} className="rounded-xl border border-border bg-panel/90 px-2.5 py-2 text-sm text-pale shadow-lg backdrop-blur sm:px-3 sm:py-2.5">☰ {pois.length}</button>
+          <button onClick={() => setDrawer(drawer === "menu" ? "none" : "menu")} className="rounded-xl border border-border bg-panel/90 px-2.5 py-2 text-sm text-pale shadow-lg backdrop-blur sm:px-3 sm:py-2.5">⚙</button>
         </div>
       </div>
 
       {/* Location search */}
       {search && (
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-[1200] flex justify-center p-3">
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-[1200] flex justify-center p-3 safe-top safe-x">
           <div className="pointer-events-auto mt-16 w-full max-w-md rounded-2xl border border-border bg-panel/95 shadow-2xl backdrop-blur">
             <div className="flex items-center gap-2 border-b border-border px-3 py-2">
               <span className="text-muted">🔍</span>
@@ -573,7 +573,7 @@ export default function App() {
 
       {/* Edit-mode helpers */}
       {mode === "edit" && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1000] flex flex-col items-center gap-2 p-3">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1000] flex flex-col items-center gap-2 p-3 safe-bottom safe-x">
           <div className="pointer-events-auto rounded-full border border-border bg-panel/90 px-4 py-1.5 text-xs text-muted shadow backdrop-blur">
             Tap the map to add a point · drag a pin to move it
           </div>
@@ -590,7 +590,7 @@ export default function App() {
 
       {/* Drive-mode status */}
       {mode === "drive" && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1000] flex items-center justify-between p-3">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1000] flex items-center justify-between p-3 safe-bottom safe-x">
           <div className="pointer-events-auto rounded-xl border border-border bg-panel/90 px-3 py-2 text-xs shadow backdrop-blur">
             {geo.error ? (
               <span className="text-red-400">GPS: {geo.error}</span>
@@ -611,7 +611,7 @@ export default function App() {
 
       {/* Passenger cards — one per overlapping active point, stacked */}
       {activeCards.length > 0 && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1100] flex max-h-[82vh] flex-col items-stretch gap-2 overflow-y-auto p-3 sm:inset-x-auto sm:right-4 sm:bottom-4 sm:w-[440px]">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1100] flex max-h-[82vh] flex-col items-stretch gap-2 overflow-y-auto p-3 safe-bottom safe-x sm:inset-x-auto sm:right-4 sm:bottom-4 sm:w-[440px]">
           {activeCards.map((ac, i) => (
             <DriveCard
               key={ac.poi.id}
@@ -678,6 +678,15 @@ export default function App() {
 
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Course name</label>
             <input value={settings.courseName} onChange={(e) => setSettings((s) => ({ ...s, courseName: e.target.value }))} className="mb-4 w-full rounded-lg border border-border bg-ink px-3 py-2 text-white focus:border-sun focus:outline-none" />
+
+            <div className="mb-4 sm:hidden">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Map layer</label>
+              <select value={settings.layerId} onChange={(e) => setSettings((s) => ({ ...s, layerId: e.target.value }))} className="w-full rounded-lg border border-border bg-ink px-3 py-2 text-white focus:border-sun focus:outline-none">
+                {TILE_LAYERS.map((l) => (
+                  <option key={l.id} value={l.id}>{l.label}</option>
+                ))}
+              </select>
+            </div>
 
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Default trigger radius: {settings.defaultRadius} m</label>
             <input type="range" min={20} max={400} step={5} value={settings.defaultRadius} onChange={(e) => setSettings((s) => ({ ...s, defaultRadius: Number(e.target.value) }))} className="mb-4 w-full accent-sun" />
