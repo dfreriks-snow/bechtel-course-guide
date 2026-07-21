@@ -33,13 +33,20 @@ function poiIcon(poi: Poi, active: boolean, selected: boolean, routeNum?: number
     ? "box-shadow:0 0 0 3px #f5b301,0 0 12px 3px rgba(245,179,1,.65);"
     : selected ? "box-shadow:0 0 0 3px #fff;" : "box-shadow:0 2px 6px rgba(0,0,0,.5);";
   const size = active ? 40 : 32;
+  // No-drive / park-and-walk render as a bold colored X on a white pin.
+  const isX = poi.category === "blocked" || poi.category === "parkwalk";
+  const bg = isX ? "#ffffff" : c.color;
+  const bd = isX ? c.color : "#fff";
+  const glyph = isX ? c.color : "#fff";
+  const glyphWeight = isX ? "font-weight:900;" : "";
+  const glyphSize = isX ? (active ? 22 : 18) : (active ? 18 : 15);
   const badge = inRoute
     ? `<div style="position:absolute;top:-9px;right:-9px;transform:rotate(45deg);min-width:18px;height:18px;padding:0 3px;border-radius:9px;background:#f5b301;color:#12211a;border:2px solid #fff;font-size:11px;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.5);">${routeNum}</div>`
     : "";
   return L.divIcon({
     className: "",
-    html: `<div style="position:relative;width:${size}px;height:${size}px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${c.color};border:2px solid #fff;${ring}display:flex;align-items:center;justify-content:center;">
-      <span style="transform:rotate(45deg);color:#fff;font-size:${active ? 18 : 15}px;line-height:1;">${c.emoji}</span>${badge}</div>`,
+    html: `<div style="position:relative;width:${size}px;height:${size}px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${bg};border:2px solid ${bd};${ring}display:flex;align-items:center;justify-content:center;">
+      <span style="transform:rotate(45deg);color:${glyph};${glyphWeight}font-size:${glyphSize}px;line-height:1;">${c.emoji}</span>${badge}</div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size],
   });
