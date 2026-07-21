@@ -36,6 +36,10 @@ export default function RoutePanel(props: Props) {
     () => props.savedCourses.some((c) => c.name.toLowerCase() === props.courseName.trim().toLowerCase()),
     [props.savedCourses, props.courseName]
   );
+  const stopSeconds = useMemo(
+    () => stops.reduce((sum, id) => sum + (byId.get(id)?.dwellMin ?? 0) * 60, 0),
+    [stops, byId]
+  );
 
   return (
     <div className="flex h-full flex-col bg-panel text-pale">
@@ -59,21 +63,26 @@ export default function RoutePanel(props: Props) {
       {/* Totals */}
       <div className="border-b border-border bg-black/20 px-4 py-3">
         {result && stops.length >= 2 ? (
-          <div className="flex items-end justify-between">
-            <div>
-              <div className="text-2xl font-bold text-sun">{formatDuration(result.totalSeconds)}</div>
-              <div className="text-xs text-muted">estimated drive time</div>
+          <>
+            <div className="flex items-end justify-between">
+              <div>
+                <div className="text-2xl font-bold text-sun">{formatDuration(result.totalSeconds + stopSeconds)}</div>
+                <div className="text-xs text-muted">estimated total tour time</div>
+              </div>
+              <div className="text-right">
+                <div className="text-lg font-semibold">{result.totalMiles.toFixed(2)} mi</div>
+                <div className="text-xs text-muted">{stops.length} stops{loop ? " · loop" : ""}</div>
+              </div>
             </div>
-            <div className="text-right">
-              <div className="text-lg font-semibold">{result.totalMiles.toFixed(2)} mi</div>
-              <div className="text-xs text-muted">{stops.length} stops{loop ? " · loop" : ""}</div>
+            <div className="mt-1 text-[11px] text-muted">
+              🚗 {formatDuration(result.totalSeconds)} driving{stopSeconds > 0 ? ` · ⏱ ${formatDuration(stopSeconds)} at stops` : ""}
             </div>
-          </div>
+          </>
         ) : (
-          <p className="text-sm text-muted">Add two or more stops to calculate distance and drive time.</p>
+          <p className="text-sm text-muted">Add two or more stops to calculate distance and time.</p>
         )}
         <p className="mt-2 text-[11px] leading-snug text-muted">
-          20 mph on roads · 5 mph through activity zones (youth present). Times are estimates from the road map.
+          15 mph in the reserve · 20 mph on the approach · 5 mph through activity zones, plus your stop times. Estimates only.
         </p>
       </div>
 
@@ -95,6 +104,9 @@ export default function RoutePanel(props: Props) {
                   <button onClick={() => props.onMove(i, 1)} disabled={i === stops.length - 1} className="px-1.5 text-muted disabled:opacity-30">▼</button>
                   <button onClick={() => props.onRemove(i)} className="px-1.5 text-red-400">✕</button>
                 </div>
+                {p?.dwellMin ? (
+                  <div className="mt-1 pl-8 text-[11px] text-sun">⏱ {p.dwellMin} min stop</div>
+                ) : null}
                 {leg && (
                   <div className="mt-1 pl-8 text-[11px] text-muted">
                     ↓ {leg.miles.toFixed(2)} mi · {formatDuration(leg.seconds)}

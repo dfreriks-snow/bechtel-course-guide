@@ -23,6 +23,7 @@ export interface Poi {
   lng: number;
   category: PoiCategory;
   radius: number; // trigger radius in meters
+  dwellMin?: number; // stop time at this location, in minutes (added to tour total)
   order: number;
   createdAt: number;
 }

@@ -83,6 +83,20 @@ export default function PoiEditor({ poi, onSave, onDelete, onClose }: Props) {
 
         <p className="mb-4 text-xs text-muted">Location: {formatCoord(draft.lat, draft.lng)} · drag the pin on the map to move it.</p>
 
+        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">
+          Stop time (minutes to visit / explore)
+        </label>
+        <input
+          type="number"
+          min={0}
+          max={480}
+          step={5}
+          value={draft.dwellMin ?? 0}
+          onChange={(e) => set("dwellMin", Math.max(0, Number(e.target.value) || 0))}
+          className="mb-1 w-full rounded-lg border border-border bg-ink px-3 py-2.5 text-base text-white placeholder:text-muted focus:border-sun focus:outline-none"
+        />
+        <p className="mb-4 text-xs text-muted">Added to the course total in the Guide planner. Leave 0 for a drive-by.</p>
+
         <div className="flex items-center justify-between gap-3">
           <button
             onClick={() => onDelete(draft.id)}
