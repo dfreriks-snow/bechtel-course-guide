@@ -130,7 +130,7 @@ export default function App() {
     return { result, orderedNames: ordered.map((p) => p.name) };
   }, [pois, routeStops, routeLoop]);
   const [follow, setFollow] = useState(true);
-  const [dismissedId, setDismissedId] = useState<string | null>(null);
+  const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   const [dl, setDl] = useState<{ active: boolean; done: number; total: number } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -251,19 +251,25 @@ export default function App() {
     for (const id of activeIds) {
       if (!prevActive.current.has(id) && settings.chime) chime();
     }
-    if (dismissedId && !activeIds.has(dismissedId)) setDismissedId(null);
+    // Forget dismissals for points that have left range (so they re-trigger later).
+    setDismissed((d) => {
+      let changed = false;
+      const next = new Set<string>();
+      for (const id of d) { if (activeIds.has(id)) next.add(id); else changed = true; }
+      return changed ? next : d;
+    });
     prevActive.current = new Set(activeIds);
-  }, [activeIds, mode, settings.chime, dismissedId]);
+  }, [activeIds, mode, settings.chime]);
 
-  // The card to show = closest active point that hasn't been dismissed.
-  const activeCard = useMemo(() => {
-    if (mode !== "drive") return null;
-    const cands = pois
-      .filter((p) => activeIds.has(p.id) && p.id !== dismissedId)
+  // Show a card for every active point (not dismissed), nearest first, so
+  // overlapping activities stack instead of hiding one another.
+  const activeCards = useMemo(() => {
+    if (mode !== "drive") return [];
+    return pois
+      .filter((p) => activeIds.has(p.id) && !dismissed.has(p.id))
       .map((p) => ({ poi: p, dist: distances.get(p.id) ?? Infinity }))
       .sort((a, b) => a.dist - b.dist);
-    return cands[0] ?? null;
-  }, [mode, pois, activeIds, dismissedId, distances]);
+  }, [mode, pois, activeIds, dismissed, distances]);
 
   const upcoming = useMemo(() => {
     if (mode !== "drive" || !geo.fix) return [];
@@ -603,9 +609,19 @@ export default function App() {
         </div>
       )}
 
-      {/* Passenger card */}
-      {activeCard && (
-        <DriveCard poi={activeCard.poi} distance={activeCard.dist} upcoming={upcoming} onDismiss={() => setDismissedId(activeCard.poi.id)} />
+      {/* Passenger cards — one per overlapping active point, stacked */}
+      {activeCards.length > 0 && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1100] flex max-h-[82vh] flex-col items-stretch gap-2 overflow-y-auto p-3 sm:inset-x-auto sm:right-4 sm:bottom-4 sm:w-[440px]">
+          {activeCards.map((ac, i) => (
+            <DriveCard
+              key={ac.poi.id}
+              poi={ac.poi}
+              distance={ac.dist}
+              upcoming={i === activeCards.length - 1 ? upcoming : []}
+              onDismiss={() => setDismissed((d) => new Set(d).add(ac.poi.id))}
+            />
+          ))}
+        </div>
       )}
 
       {/* Route drawer */}
