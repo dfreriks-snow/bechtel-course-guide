@@ -10,6 +10,7 @@ const MPH_ROAD = 20;
 const MPH_SLOW = 5;
 const MPS = (mph: number) => mph * 0.44704; // miles/hr -> meters/sec
 const METERS_PER_MILE = 1609.344;
+const TRAFFIC_FACTOR = 1.2; // buffer for car/pedestrian traffic (applied silently)
 
 export interface SlowZone { lat: number; lng: number; radius: number } // meters
 
@@ -181,6 +182,7 @@ export function computeRoute(stops: Stop[], zones: SlowZone[]): RouteResult {
       legSecs += d / MPS(seg_slow ? MPH_SLOW : MPH_ROAD);
     }
     const legMiles = legMeters / METERS_PER_MILE;
+    legSecs *= TRAFFIC_FACTOR;
     legs.push({ fromIndex: s, toIndex: s + 1, miles: legMiles, seconds: legSecs, slow, offRoad });
     totalMiles += legMiles; totalSeconds += legSecs;
     // merge into overall path (avoid duplicate join point)
