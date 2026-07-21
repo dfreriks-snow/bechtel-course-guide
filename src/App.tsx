@@ -373,6 +373,10 @@ export default function App() {
   const removeNamedCourse = async (id: string) => {
     setSavedCourses(await deleteNamedCourse(id));
   };
+  const saveCoursePrompt = () => {
+    const name = window.prompt("Save this course as:", settings.courseName || "Bechtel Course");
+    if (name && name.trim()) saveCurrentCourse(name.trim());
+  };
 
   // ── Offline download ──
   const boundsForDownload = (): Bounds => {
@@ -538,9 +542,14 @@ export default function App() {
           <div className="pointer-events-auto rounded-full border border-border bg-panel/90 px-4 py-1.5 text-xs text-muted shadow backdrop-blur">
             Tap the map to add a point · drag a pin to move it
           </div>
-          <button onClick={dropAtMyLocation} className="pointer-events-auto rounded-xl bg-forest px-5 py-3 text-base font-bold text-white shadow-lg hover:brightness-110">
-            📍 Drop point at my location
-          </button>
+          <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-2">
+            <button onClick={dropAtMyLocation} className="rounded-xl bg-forest px-5 py-3 text-base font-bold text-white shadow-lg hover:brightness-110">
+              📍 Drop point at my location
+            </button>
+            <button onClick={saveCoursePrompt} className="rounded-xl border border-sun bg-sun/15 px-5 py-3 text-base font-bold text-sun shadow-lg hover:bg-sun/25">
+              💾 Save course
+            </button>
+          </div>
         </div>
       )}
 
