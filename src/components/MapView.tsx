@@ -37,6 +37,24 @@ function poiIcon(poi: Poi, active: boolean, selected: boolean, routeNum?: number
   // instead of overlaying at the same point.
   const STACK_STEP = 34;
   const anchorY = size + stack * STACK_STEP;
+
+  // Platinum Lounge (VIP): a diamond on a platinum hexagon — distinct shape.
+  if (poi.category === "platinum") {
+    const hex = "polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)";
+    const glow = active || inRoute
+      ? "filter:drop-shadow(0 0 3px #f5b301) drop-shadow(0 0 7px rgba(245,179,1,.85));"
+      : selected ? "filter:drop-shadow(0 0 3px #fff);" : "filter:drop-shadow(0 2px 3px rgba(0,0,0,.55));";
+    const pbadge = inRoute
+      ? `<div style="position:absolute;top:-8px;right:-8px;min-width:18px;height:18px;padding:0 3px;border-radius:9px;background:#f5b301;color:#12211a;border:2px solid #fff;font-size:11px;font-weight:800;line-height:16px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.5);">${routeNum}</div>`
+      : "";
+    const html = `<div style="position:relative;width:${size}px;height:${size}px;${glow}">
+      <div style="position:absolute;inset:0;clip-path:${hex};background:#6b7178;"></div>
+      <div style="position:absolute;inset:2px;clip-path:${hex};background:linear-gradient(135deg,#f6f7f8 0%,#c4cad0 48%,#8f969e 100%);"></div>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:${active ? 18 : 15}px;">💎</div>
+      ${pbadge}</div>`;
+    return L.divIcon({ className: "", html, iconSize: [size, size], iconAnchor: [size / 2, size / 2 + stack * STACK_STEP] });
+  }
+
   // No-drive / park-and-walk render as a bold colored X on a white pin.
   const isX = poi.category === "blocked" || poi.category === "parkwalk";
   const bg = isX ? "#ffffff" : c.color;

@@ -11,6 +11,7 @@ export type PoiCategory =
   | "housing"
   | "admin"
   | "photo"
+  | "platinum"
   | "blocked"
   | "parkwalk"
   | "other";
@@ -49,6 +50,7 @@ export const CATEGORIES: Record<PoiCategory, { label: string; color: string; emo
   housing: { label: "Housing", color: "#7c3aed", emoji: "🏨" },
   admin: { label: "Admin", color: "#4f46e5", emoji: "🏢" },
   photo: { label: "Photo Opp", color: "#ec4899", emoji: "📷" },
+  platinum: { label: "Platinum Lounge", color: "#c4cad0", emoji: "💎" },
   blocked: { label: "No-drive / blocked", color: "#dc2626", emoji: "✕" },
   parkwalk: { label: "Park & walk", color: "#16a34a", emoji: "✕" },
   other: { label: "Other", color: "#64748b", emoji: "•" },
