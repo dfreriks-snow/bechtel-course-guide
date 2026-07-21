@@ -355,7 +355,7 @@ export default function App() {
   const saveCurrentCourse = async (name: string) => {
     const clean = (pendingNewId ? pois.filter((x) => x.id !== pendingNewId) : pois);
     if (clean.length === 0) { showToast("Add some points before saving a course."); return; }
-    const list = await saveNamedCourse(name || settings.courseName, clean);
+    const list = await saveNamedCourse(name || settings.courseName, clean, routeStops, routeLoop);
     setSavedCourses(list);
     setSaveName("");
     if (name.trim()) setSettings((s) => ({ ...s, courseName: name.trim() }));
@@ -367,6 +367,10 @@ export default function App() {
     savePois(sorted);
     setSettings((s) => ({ ...s, courseName: course.name }));
     pushMany(sorted);
+    // Restore the planned route too, if the course carried one.
+    const ids = new Set(sorted.map((p) => p.id));
+    setRouteStops((course.stops ?? []).filter((id) => ids.has(id)));
+    setRouteLoop(!!course.loop);
     showToast(`Loaded course “${course.name}” (${sorted.length} points).`);
     setDrawer("none");
   };
@@ -594,6 +598,10 @@ export default function App() {
             onClear={clearRoute}
             onToggleLoop={() => setRouteLoop((v) => !v)}
             onClose={() => setDrawer("none")}
+            canManage={planUnlocked}
+            savedCourses={savedCourses}
+            onSaveCourse={saveCoursePrompt}
+            onLoadCourse={loadNamedCourse}
           />
         </div>
       )}

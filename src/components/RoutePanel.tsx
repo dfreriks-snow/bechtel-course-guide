@@ -3,6 +3,7 @@ import type { Poi } from "../lib/types";
 import { CATEGORIES } from "../lib/types";
 import type { RouteResult } from "../lib/routing";
 import { formatDuration } from "../lib/routing";
+import type { SavedCourse } from "../lib/store";
 
 interface Props {
   pois: Poi[];
@@ -16,6 +17,10 @@ interface Props {
   onClear: () => void;
   onToggleLoop: () => void;
   onClose: () => void;
+  canManage: boolean;
+  savedCourses: SavedCourse[];
+  onSaveCourse: () => void;
+  onLoadCourse: (course: SavedCourse) => void;
 }
 
 export default function RoutePanel(props: Props) {
@@ -112,6 +117,23 @@ export default function RoutePanel(props: Props) {
           <button onClick={props.onClear} className="w-full rounded-lg border border-border px-4 py-2 text-sm text-muted hover:bg-white/5">
             Clear course
           </button>
+        )}
+        {props.canManage && (
+          <div className="space-y-2 border-t border-border pt-2">
+            <button onClick={props.onSaveCourse} className="w-full rounded-lg border border-sun/50 bg-sun/10 px-4 py-2.5 text-sm font-semibold text-sun hover:bg-sun/20">💾 Save course (points + route)</button>
+            {props.savedCourses.length > 0 && (
+              <select
+                value=""
+                onChange={(e) => { const c = props.savedCourses.find((x) => x.id === e.target.value); if (c) props.onLoadCourse(c); }}
+                className="w-full rounded-lg border border-border bg-black/20 px-3 py-2.5 text-sm text-pale"
+              >
+                <option value="">📂 Load saved course…</option>
+                {props.savedCourses.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name} ({c.pois.length} pts{c.stops && c.stops.length ? `, ${c.stops.length} stops` : ""})</option>
+                ))}
+              </select>
+            )}
+          </div>
         )}
       </div>
     </div>
