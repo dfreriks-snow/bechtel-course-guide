@@ -18,7 +18,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   courseName: "Bechtel Course",
-  layerId: "topo",
+  layerId: "streets",
   defaultRadius: 75,
   chime: true,
   seededStarter: false,
