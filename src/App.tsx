@@ -72,6 +72,7 @@ export default function App() {
   };
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [pendingNewId, setPendingNewId] = useState<string | null>(null);
   const [drawer, setDrawer] = useState<"none" | "list" | "menu" | "route">("none");
   const [routeStops, setRouteStops] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("routeStops") || "[]"); } catch { return []; }
@@ -160,10 +161,10 @@ export default function App() {
     if (isCloud) deletePoiRemote(id).catch(() => setSyncStatus("offline"));
   };
 
-  // Persist
+  // Persist (never persist an unsaved, freshly-dropped pin)
   useEffect(() => {
-    if (ready) savePois(pois);
-  }, [pois, ready]);
+    if (ready) savePois(pendingNewId ? pois.filter((x) => x.id !== pendingNewId) : pois);
+  }, [pois, ready, pendingNewId]);
   useEffect(() => {
     if (ready) saveSettings(settings);
   }, [settings, ready]);
@@ -232,10 +233,10 @@ export default function App() {
       order: pois.length,
       createdAt: Date.now(),
     };
-    setPois((prev) => [...prev, p]);
+    setPois((prev) => [...prev.filter((x) => x.id !== pendingNewId), p]);
     setSelectedId(p.id);
     setEditingId(p.id);
-    pushUpsert(p);
+    setPendingNewId(p.id); // provisional until the user hits Save
   };
 
   const dropAtMyLocation = () => {
@@ -251,6 +252,7 @@ export default function App() {
   const savePoi = (p: Poi) => {
     setPois((prev) => prev.map((x) => (x.id === p.id ? p : x)));
     setEditingId(null);
+    setPendingNewId((cur) => (cur === p.id ? null : cur)); // commit the pin
     pushUpsert(p);
     showToast("Saved.");
   };
@@ -259,7 +261,8 @@ export default function App() {
     setPois((prev) => prev.filter((x) => x.id !== id));
     setEditingId(null);
     if (selectedId === id) setSelectedId(null);
-    pushDelete(id);
+    if (pendingNewId === id) setPendingNewId(null);
+    else pushDelete(id);
   };
 
   const dragPoi = (id: string, lat: number, lng: number) => {
@@ -554,7 +557,16 @@ export default function App() {
       {/* Editor */}
       {editingId && (() => {
         const p = pois.find((x) => x.id === editingId);
-        return p ? <PoiEditor poi={p} onSave={savePoi} onDelete={deletePoi} onClose={() => setEditingId(null)} /> : null;
+        return p ? <PoiEditor poi={p} onSave={savePoi} onDelete={deletePoi} onClose={() => {
+          // Dropped a new pin but didn't Save → discard it (don't register the point).
+          if (pendingNewId && editingId === pendingNewId) {
+            const discardId = pendingNewId;
+            setPois((prev) => prev.filter((x) => x.id !== discardId));
+            if (selectedId === discardId) setSelectedId(null);
+            setPendingNewId(null);
+          }
+          setEditingId(null);
+        }} /> : null;
       })()}
 
       {/* Plan mode password gate */}
