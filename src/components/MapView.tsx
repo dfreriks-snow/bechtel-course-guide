@@ -40,7 +40,7 @@ function poiIcon(poi: Poi, active: boolean, selected: boolean, routeNum?: number
 
   // Platinum Lounge (VIP): a diamond on a platinum hexagon — distinct, larger shape.
   if (poi.category === "platinum") {
-    const pSize = active ? 58 : 48;
+    const pSize = active ? 70 : 60;
     const hex = "polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)";
     const glow = active || inRoute
       ? "filter:drop-shadow(0 0 3px #f5b301) drop-shadow(0 0 7px rgba(245,179,1,.85));"
@@ -51,7 +51,7 @@ function poiIcon(poi: Poi, active: boolean, selected: boolean, routeNum?: number
     const html = `<div style="position:relative;width:${pSize}px;height:${pSize}px;${glow}">
       <div style="position:absolute;inset:0;clip-path:${hex};background:#6b7178;"></div>
       <div style="position:absolute;inset:2px;clip-path:${hex};background:linear-gradient(135deg,#f6f7f8 0%,#c4cad0 48%,#8f969e 100%);"></div>
-      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:${active ? 28 : 23}px;">💎</div>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:${active ? 34 : 29}px;">💎</div>
       ${pbadge}</div>`;
     return L.divIcon({ className: "", html, iconSize: [pSize, pSize], iconAnchor: [pSize / 2, pSize / 2 + stack * STACK_STEP] });
   }
