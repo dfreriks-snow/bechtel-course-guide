@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import L from "leaflet";
-import { MapContainer, TileLayer, Marker, Circle, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Circle, Polyline, useMap, useMapEvents } from "react-leaflet";
 import type { Poi } from "../lib/types";
 import { CATEGORIES } from "../lib/types";
 import { getLayer } from "../lib/tiles";
@@ -17,6 +17,9 @@ interface Props {
   selectedId: string | null;
   activeIds: Set<string>;
   showRadii: boolean;
+  roads?: [number, number][][];
+  showRoads?: boolean;
+  routePath?: [number, number][];
   onMapClick: (lat: number, lng: number) => void;
   onMarkerClick: (id: string) => void;
   onMarkerDrag: (id: string, lat: number, lng: number) => void;
@@ -89,6 +92,17 @@ export default function MapView(props: Props) {
       <ClickCapture enabled={mode === "edit"} onClick={props.onMapClick} />
       <Follower fix={fix} follow={follow} />
       <FlyToSelected selectedId={selectedId} pois={pois} />
+
+      {/* Road network overlay (reflects current OSM roads) */}
+      {props.showRoads && props.roads &&
+        props.roads.map((line, i) => (
+          <Polyline key={`road-${i}`} positions={line} pathOptions={{ color: "#29d3ff", weight: 2, opacity: 0.65 }} interactive={false} />
+        ))}
+
+      {/* Planned course */}
+      {props.routePath && props.routePath.length > 1 && (
+        <Polyline positions={props.routePath} pathOptions={{ color: "#f5b301", weight: 5, opacity: 0.95 }} interactive={false} />
+      )}
 
       {showRadii &&
         pois.map((p) => (

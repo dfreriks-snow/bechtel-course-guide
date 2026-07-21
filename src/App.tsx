@@ -3,6 +3,7 @@ import MapView from "./components/MapView";
 import PoiEditor from "./components/PoiEditor";
 import PoiList from "./components/PoiList";
 import DriveCard from "./components/DriveCard";
+import RoutePanel from "./components/RoutePanel";
 import type { Poi } from "./lib/types";
 import {
   DEFAULT_SETTINGS,
@@ -22,6 +23,7 @@ import { useGeolocation } from "./hooks/useGeolocation";
 import { useWakeLock } from "./hooks/useWakeLock";
 import { isCloud, currentCourseId } from "./lib/supabase";
 import { deletePoiRemote, fetchPois, subscribePois, upsertMany, upsertPoi, type SyncStatus } from "./lib/cloudStore";
+import { computeRoute, roadPolylines, type RouteResult, type SlowZone } from "./lib/routing";
 
 const BECHTEL_CENTER: [number, number] = [37.9169, -81.1153];
 
@@ -70,7 +72,28 @@ export default function App() {
   };
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [drawer, setDrawer] = useState<"none" | "list" | "menu">("none");
+  const [drawer, setDrawer] = useState<"none" | "list" | "menu" | "route">("none");
+  const [routeStops, setRouteStops] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("routeStops") || "[]"); } catch { return []; }
+  });
+  const [routeLoop, setRouteLoop] = useState<boolean>(() => { try { return localStorage.getItem("routeLoop") === "1"; } catch { return false; } });
+  const [showRoads, setShowRoads] = useState<boolean>(() => { try { return localStorage.getItem("showRoads") === "1"; } catch { return false; } });
+  useEffect(() => { try { localStorage.setItem("routeStops", JSON.stringify(routeStops)); } catch { /* ignore */ } }, [routeStops]);
+  useEffect(() => { try { localStorage.setItem("routeLoop", routeLoop ? "1" : "0"); } catch { /* ignore */ } }, [routeLoop]);
+  useEffect(() => { try { localStorage.setItem("showRoads", showRoads ? "1" : "0"); } catch { /* ignore */ } }, [showRoads]);
+  const roads = useMemo(() => roadPolylines(), []);
+  const addStop = (id: string) => setRouteStops((s) => [...s, id]);
+  const removeStop = (i: number) => setRouteStops((s) => s.filter((_, idx) => idx !== i));
+  const moveStop = (i: number, dir: -1 | 1) => setRouteStops((s) => { const n = [...s]; const j = i + dir; if (j < 0 || j >= n.length) return s; [n[i], n[j]] = [n[j], n[i]]; return n; });
+  const clearRoute = () => setRouteStops([]);
+  const routeCompute = useMemo(() => {
+    const byId = new Map(pois.map((p) => [p.id, p]));
+    const base = routeStops.map((id) => byId.get(id)).filter(Boolean) as Poi[];
+    const ordered = routeLoop && base.length >= 2 ? [...base, base[0]] : base;
+    const zones: SlowZone[] = pois.filter((p) => p.category === "activity").map((p) => ({ lat: p.lat, lng: p.lng, radius: p.radius }));
+    const result: RouteResult | null = ordered.length >= 2 ? computeRoute(ordered.map((p) => ({ lat: p.lat, lng: p.lng })), zones) : null;
+    return { result, orderedNames: ordered.map((p) => p.name) };
+  }, [pois, routeStops, routeLoop]);
   const [follow, setFollow] = useState(true);
   const [dismissedId, setDismissedId] = useState<string | null>(null);
   const [dl, setDl] = useState<{ active: boolean; done: number; total: number } | null>(null);
@@ -338,6 +361,9 @@ export default function App() {
         selectedId={selectedId}
         activeIds={activeIds}
         showRadii={mode === "edit"}
+        roads={roads}
+        showRoads={showRoads}
+        routePath={routeCompute.result?.path}
         onMapClick={(lat: number, lng: number) => { if (mode === "edit") addPoiAt(lat, lng); }}
         onMarkerClick={(id) => {
           setSelectedId(id);
@@ -399,6 +425,7 @@ export default function App() {
               <option key={l.id} value={l.id}>{l.label}</option>
             ))}
           </select>
+          <button onClick={() => setDrawer(drawer === "route" ? "none" : "route")} className="rounded-xl border border-border bg-panel/90 px-3 py-2.5 text-sm text-pale shadow-lg backdrop-blur" title="Plan a course">🧭</button>
           <button onClick={() => setDrawer(drawer === "list" ? "none" : "list")} className="rounded-xl border border-border bg-panel/90 px-3 py-2.5 text-sm text-pale shadow-lg backdrop-blur">☰ {pois.length}</button>
           <button onClick={() => setDrawer(drawer === "menu" ? "none" : "menu")} className="rounded-xl border border-border bg-panel/90 px-3 py-2.5 text-sm text-pale shadow-lg backdrop-blur">⚙</button>
         </div>
@@ -442,6 +469,25 @@ export default function App() {
         <DriveCard poi={activeCard.poi} distance={activeCard.dist} upcoming={upcoming} onDismiss={() => setDismissedId(activeCard.poi.id)} />
       )}
 
+      {/* Route drawer */}
+      {drawer === "route" && (
+        <div className="absolute inset-y-0 right-0 z-[1150] w-full max-w-sm border-l border-border shadow-2xl">
+          <RoutePanel
+            pois={pois}
+            stops={routeStops}
+            orderedNames={routeCompute.orderedNames}
+            result={routeCompute.result}
+            loop={routeLoop}
+            onAdd={addStop}
+            onRemove={removeStop}
+            onMove={moveStop}
+            onClear={clearRoute}
+            onToggleLoop={() => setRouteLoop((v) => !v)}
+            onClose={() => setDrawer("none")}
+          />
+        </div>
+      )}
+
       {/* List drawer */}
       {drawer === "list" && (
         <div className="absolute inset-y-0 right-0 z-[1150] w-full max-w-sm border-l border-border shadow-2xl">
@@ -475,6 +521,11 @@ export default function App() {
             <label className="mb-4 flex items-center gap-2 text-sm text-pale">
               <input type="checkbox" checked={settings.chime} onChange={(e) => setSettings((s) => ({ ...s, chime: e.target.checked }))} className="h-4 w-4 accent-sun" />
               Play a chime when arriving at a point
+            </label>
+
+            <label className="mb-4 flex items-center gap-2 text-sm text-pale">
+              <input type="checkbox" checked={showRoads} onChange={(e) => setShowRoads(e.target.checked)} className="h-4 w-4 accent-sun" />
+              Show road network overlay (OpenStreetMap)
             </label>
 
             <div className="mb-4 space-y-2 border-t border-border pt-4">
