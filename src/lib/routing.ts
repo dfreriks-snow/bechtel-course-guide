@@ -12,7 +12,6 @@ const MPH_APPROACH = 20;  // public approach road up to the North Entrance
 const MPH_SLOW = 5;
 const MPS = (mph: number) => mph * 0.44704; // miles/hr -> meters/sec
 const METERS_PER_MILE = 1609.344;
-const TRAFFIC_FACTOR = 1.2; // buffer for car/pedestrian traffic (applied silently)
 
 // 20 mph approach corridor: the road from the J.W. & Hazel Ruby WV Welcome
 // Center up to the SBR North Entrance. Everything else on-reserve is 15 mph.
@@ -202,7 +201,6 @@ export function computeRoute(stops: Stop[], zones: SlowZone[], blocked: SlowZone
       legSecs += d / MPS(mph);
     }
     const legMiles = legMeters / METERS_PER_MILE;
-    legSecs *= TRAFFIC_FACTOR;
     legs.push({ fromIndex: s, toIndex: s + 1, miles: legMiles, seconds: legSecs, slow, offRoad });
     totalMiles += legMiles; totalSeconds += legSecs;
     // merge into overall path (avoid duplicate join point)
