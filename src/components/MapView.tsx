@@ -39,7 +39,7 @@ function poiIcon(poi: Poi, active: boolean, selected: boolean, routeNum?: number
   return L.divIcon({
     className: "",
     html: `<div style="position:relative;width:${size}px;height:${size}px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${c.color};border:2px solid #fff;${ring}display:flex;align-items:center;justify-content:center;">
-      <span style="transform:rotate(45deg);font-size:${active ? 18 : 15}px;line-height:1;">${c.emoji}</span>${badge}</div>`,
+      <span style="transform:rotate(45deg);color:#fff;font-size:${active ? 18 : 15}px;line-height:1;">${c.emoji}</span>${badge}</div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size],
   });

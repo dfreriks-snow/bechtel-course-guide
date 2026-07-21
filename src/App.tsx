@@ -102,7 +102,8 @@ export default function App() {
     const base = routeStops.map((id) => byId.get(id)).filter(Boolean) as Poi[];
     const ordered = routeLoop && base.length >= 2 ? [...base, base[0]] : base;
     const zones: SlowZone[] = pois.filter((p) => p.category === "activity").map((p) => ({ lat: p.lat, lng: p.lng, radius: p.radius }));
-    const result: RouteResult | null = ordered.length >= 2 ? computeRoute(ordered.map((p) => ({ lat: p.lat, lng: p.lng })), zones) : null;
+    const blocked: SlowZone[] = pois.filter((p) => p.category === "blocked").map((p) => ({ lat: p.lat, lng: p.lng, radius: p.radius }));
+    const result: RouteResult | null = ordered.length >= 2 ? computeRoute(ordered.map((p) => ({ lat: p.lat, lng: p.lng })), zones, blocked) : null;
     return { result, orderedNames: ordered.map((p) => p.name) };
   }, [pois, routeStops, routeLoop]);
   const [follow, setFollow] = useState(true);

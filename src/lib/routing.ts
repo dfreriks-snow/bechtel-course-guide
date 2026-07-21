@@ -84,10 +84,11 @@ function graph(): Graph {
   return GRAPH;
 }
 
-// Nearest graph node to an arbitrary point.
-function nearestNode(g: Graph, lat: number, lng: number): { key: NodeKey; dist: number } {
+// Nearest graph node to an arbitrary point (optionally skipping blocked nodes).
+function nearestNode(g: Graph, lat: number, lng: number, blocked?: Set<NodeKey>): { key: NodeKey; dist: number } {
   let best = -1, bestD = Infinity;
   for (let i = 0; i < g.nodes.length; i++) {
+    if (blocked && blocked.has(g.nodeKeys[i])) continue;
     const [nlat, nlng] = g.nodes[i];
     // cheap squared planar estimate first
     const dx = (nlng - lng) * Math.cos((lat * Math.PI) / 180);
@@ -95,6 +96,7 @@ function nearestNode(g: Graph, lat: number, lng: number): { key: NodeKey; dist: 
     const d2 = dx * dx + dy * dy;
     if (d2 < bestD) { bestD = d2; best = i; }
   }
+  if (best < 0) return nearestNode(g, lat, lng); // all candidates blocked — fall back
   const key = g.nodeKeys[best];
   const [blat, blng] = g.coord.get(key)!;
   return { key, dist: haversine(lat, lng, blat, blng) };
@@ -119,7 +121,7 @@ class MinHeap {
 }
 
 // Shortest path (list of node coords) between two graph nodes. null if unreachable.
-function dijkstra(g: Graph, start: NodeKey, goal: NodeKey): LatLng[] | null {
+function dijkstra(g: Graph, start: NodeKey, goal: NodeKey, blocked?: Set<NodeKey>): LatLng[] | null {
   const dist = new Map<NodeKey, number>();
   const prev = new Map<NodeKey, NodeKey>();
   const heap = new MinHeap();
@@ -129,6 +131,7 @@ function dijkstra(g: Graph, start: NodeKey, goal: NodeKey): LatLng[] | null {
     if (k === goal) break;
     if (d > (dist.get(k) ?? Infinity)) continue;
     for (const e of g.adj.get(k) ?? []) {
+      if (blocked && blocked.has(e.to)) continue; // no-drive area
       const nd = d + e.dist;
       if (nd < (dist.get(e.to) ?? Infinity)) { dist.set(e.to, nd); prev.set(e.to, k); heap.push(e.to, nd); }
     }
@@ -148,18 +151,26 @@ function inSlowZone(lat: number, lng: number, zones: SlowZone[]): boolean {
 
 export interface Stop { lat: number; lng: number }
 
-/** Compute a road route through the ordered stops with the 20/5 mph model. */
-export function computeRoute(stops: Stop[], zones: SlowZone[]): RouteResult {
+/** Compute a road route through the ordered stops with the 20/5 mph model.
+ * `blocked` zones are no-drive areas the route will steer around. */
+export function computeRoute(stops: Stop[], zones: SlowZone[], blocked: SlowZone[] = []): RouteResult {
   const g = graph();
+  const blockedNodes = new Set<NodeKey>();
+  if (blocked.length) {
+    for (let i = 0; i < g.nodes.length; i++) {
+      const [nlat, nlng] = g.nodes[i];
+      if (inSlowZone(nlat, nlng, blocked)) blockedNodes.add(g.nodeKeys[i]);
+    }
+  }
   const path: LatLng[] = [];
   const legs: RouteLeg[] = [];
   let totalMiles = 0, totalSeconds = 0;
 
   for (let s = 0; s < stops.length - 1; s++) {
     const a = stops[s], b = stops[s + 1];
-    const na = nearestNode(g, a.lat, a.lng);
-    const nb = nearestNode(g, b.lat, b.lng);
-    let legPts = dijkstra(g, na.key, nb.key);
+    const na = nearestNode(g, a.lat, a.lng, blockedNodes);
+    const nb = nearestNode(g, b.lat, b.lng, blockedNodes);
+    const legPts = dijkstra(g, na.key, nb.key, blockedNodes);
 
     let legMeters = 0, legSecs = 0, slow = false, offRoad = false;
     // Include the connectors from the actual stop to its snapped road node.

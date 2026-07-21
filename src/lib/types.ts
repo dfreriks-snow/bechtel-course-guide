@@ -6,6 +6,8 @@ export type PoiCategory =
   | "history"
   | "nature"
   | "food"
+  | "blocked"
+  | "parkwalk"
   | "other";
 
 export interface Poi {
@@ -36,5 +38,7 @@ export const CATEGORIES: Record<PoiCategory, { label: string; color: string; emo
   history: { label: "History", color: "#a855f7", emoji: "🏛️" },
   nature: { label: "Nature", color: "#1b5e3f", emoji: "🌲" },
   food: { label: "Food / Water", color: "#0891b2", emoji: "🍽️" },
+  blocked: { label: "No-drive / blocked", color: "#dc2626", emoji: "✕" },
+  parkwalk: { label: "Park & walk", color: "#16a34a", emoji: "✕" },
   other: { label: "Other", color: "#64748b", emoji: "•" },
 };
