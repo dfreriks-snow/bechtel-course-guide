@@ -21,6 +21,7 @@ interface Props {
   savedCourses: SavedCourse[];
   onSaveCourse: () => void;
   onLoadCourse: (course: SavedCourse) => void;
+  onDeleteCourse: (id: string) => void;
 }
 
 export default function RoutePanel(props: Props) {
@@ -122,16 +123,21 @@ export default function RoutePanel(props: Props) {
           <div className="space-y-2 border-t border-border pt-2">
             <button onClick={props.onSaveCourse} className="w-full rounded-lg border border-sun/50 bg-sun/10 px-4 py-2.5 text-sm font-semibold text-sun hover:bg-sun/20">💾 Save course (points + route)</button>
             {props.savedCourses.length > 0 && (
-              <select
-                value=""
-                onChange={(e) => { const c = props.savedCourses.find((x) => x.id === e.target.value); if (c) props.onLoadCourse(c); }}
-                className="w-full rounded-lg border border-border bg-black/20 px-3 py-2.5 text-sm text-pale"
-              >
-                <option value="">📂 Load saved course…</option>
-                {props.savedCourses.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name} ({c.pois.length} pts{c.stops && c.stops.length ? `, ${c.stops.length} stops` : ""})</option>
-                ))}
-              </select>
+              <div className="space-y-1">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Saved courses</p>
+                <ul className="space-y-1">
+                  {props.savedCourses.map((c) => (
+                    <li key={c.id} className="flex items-center gap-2 rounded-lg border border-border bg-black/10 px-2 py-1.5">
+                      <button onClick={() => props.onLoadCourse(c)} className="min-w-0 flex-1 text-left" title="Load this course">
+                        <span className="block truncate text-sm text-pale">{c.name}</span>
+                        <span className="block text-[11px] text-muted">{c.pois.length} pts{c.stops && c.stops.length ? ` · ${c.stops.length} stops` : ""}</span>
+                      </button>
+                      <button onClick={() => props.onLoadCourse(c)} className="flex-none rounded-lg border border-border px-2 py-1 text-xs text-pale hover:bg-card">Load</button>
+                      <button onClick={() => { if (confirm(`Delete saved course “${c.name}”?`)) props.onDeleteCourse(c.id); }} className="flex-none rounded-lg px-2 py-1 text-xs text-red-400 hover:bg-white/5" title="Delete">✕</button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
         )}

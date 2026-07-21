@@ -602,6 +602,7 @@ export default function App() {
             savedCourses={savedCourses}
             onSaveCourse={saveCoursePrompt}
             onLoadCourse={loadNamedCourse}
+            onDeleteCourse={removeNamedCourse}
           />
         </div>
       )}
@@ -682,7 +683,7 @@ export default function App() {
                           <div className="text-[11px] text-muted">{c.pois.length} points · {new Date(c.savedAt).toLocaleDateString()}</div>
                         </div>
                         <button onClick={() => loadNamedCourse(c)} className="flex-none rounded-lg border border-border px-2.5 py-1 text-xs text-pale hover:bg-card">Load</button>
-                        <button onClick={() => removeNamedCourse(c.id)} className="flex-none rounded-lg px-2 py-1 text-xs text-red-400 hover:bg-white/5">✕</button>
+                        <button onClick={() => { if (confirm(`Delete saved course “${c.name}”?`)) removeNamedCourse(c.id); }} className="flex-none rounded-lg px-2 py-1 text-xs text-red-400 hover:bg-white/5">✕</button>
                       </li>
                     ))}
                   </ul>
