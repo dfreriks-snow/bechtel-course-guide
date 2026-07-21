@@ -35,7 +35,9 @@ offline use** (the Reserve has patchy cell coverage).
 - Everything is stored **on the device** (IndexedDB). No server, no account.
 
 > **Guides:** see `Bechtel_Course_Guide_Quick_Start.pdf` (one-page) and
-> `Bechtel_Course_Guide_User_Guide.pdf` (full guide) in this folder.
+> `Bechtel_Course_Guide_User_Guide.pdf` (full driver guide), plus
+> `Bechtel_Course_Guide_Admin_Guide.pdf` (for tour leads: build/manage the
+> course) in this folder.
 
 ---
 
