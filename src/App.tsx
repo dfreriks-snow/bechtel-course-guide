@@ -131,6 +131,8 @@ export default function App() {
   }, [pois, routeStops, routeLoop]);
   const [follow, setFollow] = useState(true);
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const previewTimer = useRef<number | null>(null);
   const [dl, setDl] = useState<{ active: boolean; done: number; total: number } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -243,6 +245,17 @@ export default function App() {
     setSelectedId(id);
     setSearch(false);
     setSearchQ("");
+  };
+  // Drive mode: tapping a point previews its card for 10s (or until dismissed).
+  const previewPoi = (id: string) => {
+    setPreviewId(id);
+    if (previewTimer.current) clearTimeout(previewTimer.current);
+    previewTimer.current = window.setTimeout(() => setPreviewId(null), 10000);
+  };
+  const closePreview = () => {
+    if (previewTimer.current) clearTimeout(previewTimer.current);
+    previewTimer.current = null;
+    setPreviewId(null);
   };
 
   // Chime when a new point becomes active; clear dismissal when its point leaves range.
@@ -472,6 +485,7 @@ export default function App() {
           }
           setSelectedId(id);
           if (mode === "edit") setEditingId(id);
+          else if (mode === "drive") previewPoi(id);
         }}
         onMarkerDrag={dragPoi}
       />
@@ -610,7 +624,7 @@ export default function App() {
       )}
 
       {/* Passenger cards — one per overlapping active point, stacked */}
-      {activeCards.length > 0 && (
+      {(activeCards.length > 0 || (mode === "drive" && previewId && !activeCards.some((a) => a.poi.id === previewId))) && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1100] flex max-h-[82vh] flex-col items-stretch gap-2 overflow-y-auto p-3 safe-bottom safe-x sm:inset-x-auto sm:right-4 sm:bottom-4 sm:w-[440px]">
           {activeCards.map((ac, i) => (
             <DriveCard
@@ -621,6 +635,19 @@ export default function App() {
               onDismiss={() => setDismissed((d) => new Set(d).add(ac.poi.id))}
             />
           ))}
+          {mode === "drive" && previewId && !activeCards.some((a) => a.poi.id === previewId) && (() => {
+            const p = pois.find((x) => x.id === previewId);
+            if (!p) return null;
+            return (
+              <DriveCard
+                key={`preview-${p.id}`}
+                poi={p}
+                distance={distances.get(p.id) ?? null}
+                upcoming={[]}
+                onDismiss={closePreview}
+              />
+            );
+          })()}
         </div>
       )}
 
