@@ -102,7 +102,7 @@ function Follower({ fix, follow }: { fix: Fix | null; follow: boolean }) {
 function ModeZoom({ mode }: { mode: "edit" | "drive" | "walk" }) {
   const map = useMap();
   useEffect(() => {
-    if (mode === "walk") map.setZoom(Math.max(map.getZoom(), 17));
+    if (mode === "walk") map.setZoom(18);
     else if (mode === "drive" && map.getZoom() > 15) map.setZoom(15);
   }, [mode, map]);
   return null;
