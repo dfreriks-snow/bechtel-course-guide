@@ -247,7 +247,9 @@ export default function App() {
     setSearchQ("");
   };
   // Drive mode: tapping a point previews its card for 10s (or until dismissed).
+  // Tapping the same point again closes it.
   const previewPoi = (id: string) => {
+    if (previewId === id) { closePreview(); return; }
     setPreviewId(id);
     if (previewTimer.current) clearTimeout(previewTimer.current);
     previewTimer.current = window.setTimeout(() => setPreviewId(null), 10000);
