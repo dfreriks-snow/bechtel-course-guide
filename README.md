@@ -1,9 +1,10 @@
 # Summit Bechtel Course Guide
 
-A fullscreen, installable iPad web app (PWA) for driving the course at the
-**Scouting America Summit Bechtel Reserve**. Tag points of interest with a
-description and notes, then in **Drive** mode each point **auto-pops** on screen
-for passengers as the vehicle comes within range.
+A fullscreen, installable web app (PWA) for driving the course at the
+**Scouting America Summit Bechtel Reserve**. It is **responsive** — it adapts to
+iPhone, iPad, and laptop. Tag points of interest with a description and notes,
+then in **Drive** mode each point **auto-pops** on screen for passengers as the
+vehicle comes within range.
 
 Built with React + Vite + TypeScript + Leaflet. No Google Maps API key required —
 it uses free satellite / topo / street imagery that can be **pre-downloaded for
@@ -15,19 +16,25 @@ offline use** (the Reserve has patchy cell coverage).
 
 - **Drive mode (default)** — the app opens here. The map follows your GPS; when you
   get within a point’s radius, a large passenger card appears with its description +
-  notes, plus a “coming up” list of the nearest points. Optional arrival chime. Keeps
-  the screen awake. Safe to share — no editing.
+  notes, plus a “coming up” list of the nearest points. Overlapping points each get
+  their own stacked card. **Tap any point** to preview its card (auto-closes after
+  10s, on re-tap, or ✕). Optional arrival chime. Keeps the screen awake. Safe to
+  share — no editing.
 - **Plan mode (password-protected)** — tap the map to drop a pin, or “Drop point at my
-  location”; add a name, category, description, notes, and a trigger radius. Drag pins
-  to reposition. Tap **🔒 Plan** and enter the password to unlock editing on that device
-  (a 🔓 button re-locks it). **New pins are provisional** — if you close the editor
-  without hitting **Save**, the pin is discarded.
-- **🧭 Guide — Course Planner + ETA** — pick an ordered set of stops and get the
-  **total distance and drive time**, computed along the Summit’s roads (bundled from
-  OpenStreetMap). Speed model: **20 mph** on roads, **5 mph** through activity zones
-  (youth present); per-leg breakdown, optional loop, and the route draws on the map.
-  A **road network overlay** (⚙ menu) reflects the current OSM roads. Route is stored
-  per-device and never touches the shared course.
+  location”; add a name, category, description, notes, a trigger radius, and a **stop
+  time**. Drag pins to reposition. Tap **🔒 Plan** and enter the password to unlock
+  editing on that device (a 🔓 button re-locks it). **New pins are provisional** — if
+  you close the editor without hitting **Save**, the pin is discarded. Categories
+  include Landmark, Activity, Camp, Safety, History, Nature, Food, Water, Statue,
+  Housing, Admin, Photo Opp, Platinum Lounge, plus **No-drive (red X)** and
+  **Park & walk (green X)**.
+- **🧭 Guide — Course Planner + ETA** — pick an ordered set of stops (tap the map or
+  the dropdown) and add standalone **Explore/View** time blocks; get the **total tour
+  time** (driving + stop time) and distance, computed along the Summit’s roads (bundled
+  from OpenStreetMap). Speed model: **15 mph** on reserve roads, **20 mph** on the
+  approach to the North Entrance, **5 mph** through activity zones; courses route
+  **around No-drive areas**. Per-leg breakdown, optional loop, and the route draws on
+  the map. Save/Load/Delete **named courses** (points + route) on the device.
 - **Offline** — installable to the home screen; caches the app and map tiles.
   A “Download this area for offline” button pre-fetches tiles around your points.
 - **Portable courses** — export/import the whole course as a `.json` file, so you
