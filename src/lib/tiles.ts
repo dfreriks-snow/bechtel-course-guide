@@ -30,6 +30,14 @@ export const TILE_LAYERS: TileLayerDef[] = [
     maxZoom: 19,
     subdomains: "abc",
   },
+  {
+    id: "trails",
+    label: "Trails",
+    url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+    attribution: "&copy; OpenTopoMap (CC-BY-SA), &copy; OpenStreetMap contributors",
+    maxZoom: 17,
+    subdomains: "abc",
+  },
 ];
 
 export function getLayer(id: string): TileLayerDef {

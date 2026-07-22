@@ -28,7 +28,7 @@ import { useGeolocation } from "./hooks/useGeolocation";
 import { useWakeLock } from "./hooks/useWakeLock";
 import { isCloud, currentCourseId } from "./lib/supabase";
 import { deletePoiRemote, fetchPois, subscribePois, upsertMany, upsertPoi, type SyncStatus } from "./lib/cloudStore";
-import { computeRoute, roadPolylines, type RouteResult, type SlowZone } from "./lib/routing";
+import { computeRoute, computeWalkRoute, roadPolylines, type RouteResult, type SlowZone } from "./lib/routing";
 
 const BECHTEL_CENTER: [number, number] = [37.9169, -81.1153];
 
@@ -91,6 +91,8 @@ export default function App() {
     try { return JSON.parse(localStorage.getItem("routeTimeBlocks") || "{}"); } catch { return {}; }
   });
   const [routeLoop, setRouteLoop] = useState<boolean>(() => { try { return localStorage.getItem("routeLoop") === "1"; } catch { return false; } });
+  const [travelMode, setTravelMode] = useState<"drive" | "walk">(() => { try { return localStorage.getItem("travelMode") === "walk" ? "walk" : "drive"; } catch { return "drive"; } });
+  useEffect(() => { try { localStorage.setItem("travelMode", travelMode); } catch { /* ignore */ } }, [travelMode]);
   const [showRoads, setShowRoads] = useState<boolean>(() => { try { return localStorage.getItem("showRoads") === "1"; } catch { return false; } });
   useEffect(() => { try { localStorage.setItem("routeStops", JSON.stringify(routeStops)); } catch { /* ignore */ } }, [routeStops]);
   useEffect(() => { try { localStorage.setItem("routeTimeBlocks", JSON.stringify(timeBlocks)); } catch { /* ignore */ } }, [timeBlocks]);
@@ -126,9 +128,12 @@ export default function App() {
     const ordered = routeLoop && base.length >= 2 ? [...base, base[0]] : base;
     const zones: SlowZone[] = pois.filter((p) => p.category === "activity").map((p) => ({ lat: p.lat, lng: p.lng, radius: p.radius }));
     const blocked: SlowZone[] = pois.filter((p) => p.category === "blocked").map((p) => ({ lat: p.lat, lng: p.lng, radius: p.radius }));
-    const result: RouteResult | null = ordered.length >= 2 ? computeRoute(ordered.map((p) => ({ lat: p.lat, lng: p.lng })), zones, blocked) : null;
+    const stopsLL = ordered.map((p) => ({ lat: p.lat, lng: p.lng }));
+    const result: RouteResult | null = ordered.length >= 2
+      ? (travelMode === "walk" ? computeWalkRoute(stopsLL) : computeRoute(stopsLL, zones, blocked))
+      : null;
     return { result, orderedNames: ordered.map((p) => p.name) };
-  }, [pois, routeStops, routeLoop]);
+  }, [pois, routeStops, routeLoop, travelMode]);
   const [follow, setFollow] = useState(true);
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   const [previewId, setPreviewId] = useState<string | null>(null);
@@ -669,6 +674,8 @@ export default function App() {
             result={routeCompute.result}
             loop={routeLoop}
             timeBlocks={timeBlocks}
+            travelMode={travelMode}
+            onSetTravelMode={setTravelMode}
             onAdd={addStop}
             onRemove={removeStop}
             onMove={moveStop}

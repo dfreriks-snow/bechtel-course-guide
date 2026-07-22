@@ -3,13 +3,15 @@
 // snapped stops. Speed model: 15 mph on reserve roads, 20 mph on the approach
 // up to the North Entrance, 5 mph within an activity zone.
 // Zero external dependencies; fully offline.
-import { SBR_ROADS } from "../data/sbrRoads";
+import { SBR_ROADS, type RoadSeg } from "../data/sbrRoads";
+import { SBR_TRAILS } from "../data/sbrTrails";
 
 export type LatLng = [number, number];
 
 const MPH_ROAD = 15;      // inside the reserve (past the North Entrance)
 const MPH_APPROACH = 20;  // public approach road up to the North Entrance
 const MPH_SLOW = 5;
+const MPH_WALK = 2;       // walking pace on trails
 const MPS = (mph: number) => mph * 0.44704; // miles/hr -> meters/sec
 const METERS_PER_MILE = 1609.344;
 
@@ -57,10 +59,11 @@ interface Graph {
   nodeKeys: NodeKey[];
 }
 let GRAPH: Graph | null = null;
+let TRAIL_GRAPH: Graph | null = null;
 
 const keyOf = (lat: number, lng: number): NodeKey => `${lat.toFixed(5)},${lng.toFixed(5)}`;
 
-function buildGraph(): Graph {
+function buildGraph(segs: RoadSeg[]): Graph {
   const adj = new Map<NodeKey, Edge[]>();
   const coord = new Map<NodeKey, LatLng>();
   const addNode = (lat: number, lng: number): NodeKey => {
@@ -73,7 +76,7 @@ function buildGraph(): Graph {
     adj.get(a)!.push({ to: b, dist: d });
     adj.get(b)!.push({ to: a, dist: d });
   };
-  for (const seg of SBR_ROADS) {
+  for (const seg of segs) {
     for (let i = 0; i < seg.pts.length - 1; i++) {
       const [aLat, aLng] = seg.pts[i];
       const [bLat, bLng] = seg.pts[i + 1];
@@ -87,8 +90,12 @@ function buildGraph(): Graph {
   return { adj, coord, nodes, nodeKeys };
 }
 function graph(): Graph {
-  if (!GRAPH) GRAPH = buildGraph();
+  if (!GRAPH) GRAPH = buildGraph(SBR_ROADS);
   return GRAPH;
+}
+function trailGraph(): Graph {
+  if (!TRAIL_GRAPH) TRAIL_GRAPH = buildGraph(SBR_TRAILS);
+  return TRAIL_GRAPH;
 }
 
 // Nearest graph node to an arbitrary point (optionally skipping blocked nodes).
@@ -213,6 +220,48 @@ export function computeRoute(stops: Stop[], zones: SlowZone[], blocked: SlowZone
 /** Road segments as polylines for the map overlay. */
 export function roadPolylines(): LatLng[][] {
   return SBR_ROADS.map((s) => s.pts);
+}
+
+/** Trail segments as polylines for the map overlay. */
+export function trailPolylines(): LatLng[][] {
+  return SBR_TRAILS.map((s) => s.pts);
+}
+
+/** Compute a walking route through the ordered stops along trails at 2 mph.
+ * Walkers use trails only (no roads) but may pass through no-drive areas, so
+ * `blocked` is intentionally ignored here. Gaps between disconnected trails
+ * fall back to a straight-line estimate (flagged offRoad). */
+export function computeWalkRoute(stops: Stop[]): RouteResult {
+  const g = trailGraph();
+  const path: LatLng[] = [];
+  const legs: RouteLeg[] = [];
+  let totalMiles = 0, totalSeconds = 0;
+
+  for (let s = 0; s < stops.length - 1; s++) {
+    const a = stops[s], b = stops[s + 1];
+    const na = nearestNode(g, a.lat, a.lng);
+    const nb = nearestNode(g, b.lat, b.lng);
+    const legPts = g.nodes.length ? dijkstra(g, na.key, nb.key) : null;
+
+    let legMeters = 0, offRoad = false;
+    const full: LatLng[] = [];
+    if (legPts && legPts.length >= 2) {
+      full.push([a.lat, a.lng], ...legPts, [b.lat, b.lng]);
+    } else {
+      offRoad = true;
+      full.push([a.lat, a.lng], [b.lat, b.lng]);
+    }
+    for (let i = 0; i < full.length - 1; i++) {
+      legMeters += haversine(full[i][0], full[i][1], full[i + 1][0], full[i + 1][1]);
+    }
+    const legMiles = legMeters / METERS_PER_MILE;
+    const legSecs = legMeters / MPS(MPH_WALK);
+    legs.push({ fromIndex: s, toIndex: s + 1, miles: legMiles, seconds: legSecs, slow: false, offRoad });
+    totalMiles += legMiles; totalSeconds += legSecs;
+    if (path.length === 0) path.push(...full);
+    else path.push(...full.slice(1));
+  }
+  return { path, legs, totalMiles, totalSeconds };
 }
 
 export function formatDuration(seconds: number): string {

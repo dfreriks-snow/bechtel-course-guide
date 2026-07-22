@@ -18,6 +18,8 @@ interface Props {
   onToggleLoop: () => void;
   onClose: () => void;
   timeBlocks: Record<string, { minutes: number; label: string }>;
+  travelMode: "drive" | "walk";
+  onSetTravelMode: (m: "drive" | "walk") => void;
   onAddTimeBlock: (minutes: number) => void;
   onEditTimeBlock: (id: string) => void;
   canManage: boolean;
@@ -76,6 +78,15 @@ export default function RoutePanel(props: Props) {
         <button onClick={props.onClose} className="flex-none rounded-lg px-2 py-1 text-sm text-muted hover:bg-white/5">✕</button>
       </div>
 
+      {/* Travel mode */}
+      <div className="flex items-center gap-2 border-b border-border px-4 py-2">
+        <span className="text-xs text-muted">Travel by</span>
+        <div className="flex overflow-hidden rounded-lg border border-border">
+          <button onClick={() => props.onSetTravelMode("drive")} className={`px-3 py-1.5 text-sm font-semibold ${props.travelMode === "drive" ? "bg-sun text-ink" : "text-muted"}`}>🚗 Drive</button>
+          <button onClick={() => props.onSetTravelMode("walk")} className={`px-3 py-1.5 text-sm font-semibold ${props.travelMode === "walk" ? "bg-sun text-ink" : "text-muted"}`}>🥾 Walk</button>
+        </div>
+      </div>
+
       {/* Totals */}
       <div className="border-b border-border bg-black/20 px-4 py-3">
         {result && stops.length >= 2 ? (
@@ -91,14 +102,16 @@ export default function RoutePanel(props: Props) {
               </div>
             </div>
             <div className="mt-1 text-[11px] text-muted">
-              🚗 {formatDuration(result.totalSeconds)} driving{stopSeconds > 0 ? ` · ⏱ ${formatDuration(stopSeconds)} at stops` : ""}
+              {props.travelMode === "walk" ? "🥾" : "🚗"} {formatDuration(result.totalSeconds)} {props.travelMode === "walk" ? "walking" : "driving"}{stopSeconds > 0 ? ` · ⏱ ${formatDuration(stopSeconds)} at stops` : ""}
             </div>
           </>
         ) : (
           <p className="text-sm text-muted">Add two or more stops to calculate distance and time.</p>
         )}
         <p className="mt-2 text-[11px] leading-snug text-muted">
-          15 mph in the reserve · 20 mph on the approach · 5 mph through activity zones, plus your stop times. Estimates only.
+          {props.travelMode === "walk"
+            ? "Walking follows trails at 2 mph (not roads; may cross no-drive areas). Gaps between mapped trails are straight-line estimates. Plus your stop times."
+            : "15 mph in the reserve · 20 mph on the approach · 5 mph through activity zones, plus your stop times. Estimates only."}
         </p>
       </div>
 
