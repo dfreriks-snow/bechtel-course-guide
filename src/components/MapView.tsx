@@ -9,7 +9,7 @@ import type { Fix } from "../hooks/useGeolocation";
 interface Props {
   pois: Poi[];
   layerId: string;
-  mode: "edit" | "drive";
+  mode: "edit" | "drive" | "walk";
   fix: Fix | null;
   follow: boolean;
   center: [number, number];
@@ -98,6 +98,16 @@ function Follower({ fix, follow }: { fix: Fix | null; follow: boolean }) {
   return null;
 }
 
+// Zoom the map closer for walking, back out for driving, when the mode changes.
+function ModeZoom({ mode }: { mode: "edit" | "drive" | "walk" }) {
+  const map = useMap();
+  useEffect(() => {
+    if (mode === "walk") map.setZoom(Math.max(map.getZoom(), 17));
+    else if (mode === "drive" && map.getZoom() > 15) map.setZoom(15);
+  }, [mode, map]);
+  return null;
+}
+
 function FlyToSelected({ selectedId, pois }: { selectedId: string | null; pois: Poi[] }) {
   const map = useMap();
   useEffect(() => {
@@ -113,7 +123,7 @@ function PoiMarkers({ pois, activeIds, selectedId, routeIndex, mode, compact, on
   activeIds: Set<string>;
   selectedId: string | null;
   routeIndex: Map<string, number>;
-  mode: "edit" | "drive";
+  mode: "edit" | "drive" | "walk";
   compact: boolean;
   onMarkerClick: (id: string) => void;
   onMarkerDrag: (id: string, lat: number, lng: number) => void;
@@ -168,6 +178,7 @@ export default function MapView(props: Props) {
 
       <ClickCapture enabled={mode === "edit"} onClick={props.onMapClick} />
       <Follower fix={fix} follow={follow} />
+      <ModeZoom mode={mode} />
       <FlyToSelected selectedId={selectedId} pois={pois} />
 
       {/* Road network overlay (reflects current OSM roads) */}

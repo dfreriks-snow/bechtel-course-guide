@@ -59,7 +59,7 @@ export default function App() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [ready, setReady] = useState(false);
 
-  const [mode, setMode] = useState<"edit" | "drive">("drive");
+  const [mode, setMode] = useState<"edit" | "drive" | "walk">("drive");
   const [planUnlocked, setPlanUnlocked] = useState<boolean>(() => {
     try { return localStorage.getItem("planUnlocked") === "1"; } catch { return false; }
   });
@@ -205,8 +205,8 @@ export default function App() {
     if (ready) saveSettings(settings);
   }, [settings, ready]);
 
-  const geo = useGeolocation(mode === "drive");
-  useWakeLock(mode === "drive");
+  const geo = useGeolocation(mode !== "edit");
+  useWakeLock(mode !== "edit");
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -222,7 +222,7 @@ export default function App() {
 
   const activeIds = useMemo(() => {
     const s = new Set<string>();
-    if (mode === "drive" && geo.fix) for (const p of pois) if ((distances.get(p.id) ?? Infinity) <= p.radius) s.add(p.id);
+    if (mode !== "edit" && geo.fix) for (const p of pois) if ((distances.get(p.id) ?? Infinity) <= p.radius) s.add(p.id);
     return s;
   }, [mode, geo.fix, pois, distances]);
 
@@ -262,7 +262,7 @@ export default function App() {
 
   // Chime when a new point becomes active; clear dismissal when its point leaves range.
   useEffect(() => {
-    if (mode !== "drive") return;
+    if (mode === "edit") return;
     for (const id of activeIds) {
       if (!prevActive.current.has(id) && settings.chime) chime();
     }
@@ -279,7 +279,7 @@ export default function App() {
   // Show a card for every active point (not dismissed), nearest first, so
   // overlapping activities stack instead of hiding one another.
   const activeCards = useMemo(() => {
-    if (mode !== "drive") return [];
+    if (mode === "edit") return [];
     return pois
       .filter((p) => activeIds.has(p.id) && !dismissed.has(p.id))
       .map((p) => ({ poi: p, dist: distances.get(p.id) ?? Infinity }))
@@ -287,7 +287,7 @@ export default function App() {
   }, [mode, pois, activeIds, dismissed, distances]);
 
   const upcoming = useMemo(() => {
-    if (mode !== "drive" || !geo.fix) return [];
+    if (mode === "edit" || !geo.fix) return [];
     return pois
       .map((p) => ({ poi: p, dist: distances.get(p.id) ?? Infinity }))
       .filter((x) => !activeIds.has(x.poi.id))
@@ -467,7 +467,7 @@ export default function App() {
         layerId={settings.layerId}
         mode={mode}
         fix={geo.fix}
-        follow={mode === "drive" && follow}
+        follow={mode !== "edit" && follow}
         center={BECHTEL_CENTER}
         zoom={14}
         selectedId={selectedId}
@@ -487,7 +487,7 @@ export default function App() {
           }
           setSelectedId(id);
           if (mode === "edit") setEditingId(id);
-          else if (mode === "drive") previewPoi(id);
+          else previewPoi(id);
         }}
         onMarkerDrag={dragPoi}
       />
@@ -507,6 +507,12 @@ export default function App() {
               className={`px-3 py-2 text-sm font-semibold sm:px-4 sm:py-2.5 ${mode === "drive" ? "bg-sun text-ink" : "text-muted"}`}
             >
               ▶ Drive
+            </button>
+            <button
+              onClick={() => { setMode("walk"); setFollow(true); }}
+              className={`px-3 py-2 text-sm font-semibold sm:px-4 sm:py-2.5 ${mode === "walk" ? "bg-sun text-ink" : "text-muted"}`}
+            >
+              🥾 Walk
             </button>
             {planUnlocked && (
               <button
@@ -605,7 +611,7 @@ export default function App() {
       )}
 
       {/* Drive-mode status */}
-      {mode === "drive" && (
+      {mode !== "edit" && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1000] flex items-center justify-between p-3 safe-bottom safe-x">
           <div className="pointer-events-auto rounded-xl border border-border bg-panel/90 px-3 py-2 text-xs shadow backdrop-blur">
             {geo.error ? (
@@ -626,7 +632,7 @@ export default function App() {
       )}
 
       {/* Passenger cards — one per overlapping active point, stacked */}
-      {(activeCards.length > 0 || (mode === "drive" && previewId && !activeCards.some((a) => a.poi.id === previewId))) && (
+      {(activeCards.length > 0 || (mode !== "edit" && previewId && !activeCards.some((a) => a.poi.id === previewId))) && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1100] flex max-h-[82vh] flex-col items-stretch gap-2 overflow-y-auto p-3 safe-bottom safe-x sm:inset-x-auto sm:right-4 sm:bottom-4 sm:w-[440px]">
           {activeCards.map((ac, i) => (
             <DriveCard
@@ -637,7 +643,7 @@ export default function App() {
               onDismiss={() => setDismissed((d) => new Set(d).add(ac.poi.id))}
             />
           ))}
-          {mode === "drive" && previewId && !activeCards.some((a) => a.poi.id === previewId) && (() => {
+          {mode !== "edit" && previewId && !activeCards.some((a) => a.poi.id === previewId) && (() => {
             const p = pois.find((x) => x.id === previewId);
             if (!p) return null;
             return (
