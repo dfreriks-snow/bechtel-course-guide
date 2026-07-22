@@ -5,6 +5,7 @@
 // Zero external dependencies; fully offline.
 import { SBR_ROADS, type RoadSeg } from "../data/sbrRoads";
 import { SBR_TRAILS } from "../data/sbrTrails";
+import { SBR_WALK_ROADS } from "../data/sbrWalkRoads";
 
 export type LatLng = [number, number];
 
@@ -63,7 +64,7 @@ let TRAIL_GRAPH: Graph | null = null;
 
 const keyOf = (lat: number, lng: number): NodeKey => `${lat.toFixed(5)},${lng.toFixed(5)}`;
 
-function buildGraph(segs: RoadSeg[], stitchMeters = 0): Graph {
+function buildGraph(segs: RoadSeg[], stitchMeters = 0, excludeBothIn?: Set<NodeKey>): Graph {
   const adj = new Map<NodeKey, Edge[]>();
   const coord = new Map<NodeKey, LatLng>();
   const addNode = (lat: number, lng: number): NodeKey => {
@@ -82,6 +83,8 @@ function buildGraph(segs: RoadSeg[], stitchMeters = 0): Graph {
       const [bLat, bLng] = seg.pts[i + 1];
       const ka = addNode(aLat, aLng);
       const kb = addNode(bLat, bLng);
+      // Skip closed-to-vehicle stretches (both ends inside the pedestrian corridor).
+      if (excludeBothIn && excludeBothIn.has(ka) && excludeBothIn.has(kb)) continue;
       link(ka, kb, haversine(aLat, aLng, bLat, bLng));
     }
   }
@@ -119,12 +122,22 @@ function stitchComponents(adj: Map<NodeKey, Edge[]>, keys: NodeKey[], nodes: Lat
     if (d <= maxM && find(a) !== find(b)) { union(a, b); link(a, b, d); }
   }
 }
+// Nodes on the vehicle-closed pedestrian corridor (removed from the drive graph).
+let CLOSED_KEYS: Set<NodeKey> | null = null;
+function closedKeys(): Set<NodeKey> {
+  if (!CLOSED_KEYS) {
+    CLOSED_KEYS = new Set<NodeKey>();
+    for (const seg of SBR_WALK_ROADS) for (const [la, ln] of seg.pts) CLOSED_KEYS.add(keyOf(la, ln));
+  }
+  return CLOSED_KEYS;
+}
 function graph(): Graph {
-  if (!GRAPH) GRAPH = buildGraph(SBR_ROADS);
+  if (!GRAPH) GRAPH = buildGraph(SBR_ROADS, 0, closedKeys());
   return GRAPH;
 }
 function trailGraph(): Graph {
-  if (!TRAIL_GRAPH) TRAIL_GRAPH = buildGraph(SBR_TRAILS, 80);
+  // Walking uses trails + the vehicle-closed roads (walkable), stitched across gaps.
+  if (!TRAIL_GRAPH) TRAIL_GRAPH = buildGraph([...SBR_TRAILS, ...SBR_WALK_ROADS], 80);
   return TRAIL_GRAPH;
 }
 
