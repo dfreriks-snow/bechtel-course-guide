@@ -136,9 +136,19 @@ function graph(): Graph {
   return GRAPH;
 }
 function trailGraph(): Graph {
-  // Walking uses trails + the vehicle-closed roads (walkable), stitched across gaps.
-  if (!TRAIL_GRAPH) TRAIL_GRAPH = buildGraph([...SBR_TRAILS, ...SBR_WALK_ROADS], 80);
+  // Walking uses trails + the vehicle-closed corridor + all roads in the Summit
+  // Center core (car-free / walkable), stitched across small gaps.
+  if (!TRAIL_GRAPH) TRAIL_GRAPH = buildGraph(walkSegments(), 80);
   return TRAIL_GRAPH;
+}
+
+// Summit Center core: roads here are car-free and walkable.
+const SUMMIT_WALK_ZONE = { lat: 37.916, lng: -81.1225, radius: 500 };
+function walkSegments(): RoadSeg[] {
+  const inZone = (p: LatLng) =>
+    haversine(p[0], p[1], SUMMIT_WALK_ZONE.lat, SUMMIT_WALK_ZONE.lng) <= SUMMIT_WALK_ZONE.radius;
+  const coreRoads = SBR_ROADS.filter((seg) => seg.pts.some(inZone));
+  return [...SBR_TRAILS, ...SBR_WALK_ROADS, ...coreRoads];
 }
 
 // Nearest graph node to an arbitrary point (optionally skipping blocked nodes).
