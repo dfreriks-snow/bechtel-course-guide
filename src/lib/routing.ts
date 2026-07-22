@@ -63,7 +63,7 @@ let TRAIL_GRAPH: Graph | null = null;
 
 const keyOf = (lat: number, lng: number): NodeKey => `${lat.toFixed(5)},${lng.toFixed(5)}`;
 
-function buildGraph(segs: RoadSeg[]): Graph {
+function buildGraph(segs: RoadSeg[], stitchMeters = 0): Graph {
   const adj = new Map<NodeKey, Edge[]>();
   const coord = new Map<NodeKey, LatLng>();
   const addNode = (lat: number, lng: number): NodeKey => {
@@ -87,14 +87,44 @@ function buildGraph(segs: RoadSeg[]): Graph {
   }
   const nodeKeys = [...coord.keys()];
   const nodes = nodeKeys.map((k) => coord.get(k)!);
+  // Bridge disconnected fragments (OSM trails are fragmented) with the fewest,
+  // shortest cross-component links ≤ stitchMeters, so routing follows trails
+  // instead of cutting straight lines across small gaps.
+  if (stitchMeters > 0) stitchComponents(adj, nodeKeys, nodes, link, stitchMeters);
   return { adj, coord, nodes, nodeKeys };
+}
+
+function stitchComponents(adj: Map<NodeKey, Edge[]>, keys: NodeKey[], nodes: LatLng[], link: (a: NodeKey, b: NodeKey, d: number) => void, maxM: number) {
+  const parent = new Map<NodeKey, NodeKey>();
+  const find = (x: NodeKey): NodeKey => { while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x)!)!); x = parent.get(x)!; } return x; };
+  const union = (a: NodeKey, b: NodeKey) => { parent.set(find(a), find(b)); };
+  for (const k of keys) parent.set(k, k);
+  for (const [k, edges] of adj) for (const e of edges) union(k, e.to);
+  const cand: { d: number; a: NodeKey; b: NodeKey }[] = [];
+  const n = keys.length;
+  const maxSq = maxM * maxM;
+  for (let i = 0; i < n; i++) {
+    const [ai, aj] = nodes[i];
+    const cos = Math.cos((ai * Math.PI) / 180) * 111320;
+    for (let j = i + 1; j < n; j++) {
+      const [bi, bj] = nodes[j];
+      const dx = (bj - aj) * cos, dy = (bi - ai) * 111320;
+      if (dx * dx + dy * dy > maxSq) continue;
+      if (find(keys[i]) === find(keys[j])) continue;
+      cand.push({ d: haversine(ai, aj, bi, bj), a: keys[i], b: keys[j] });
+    }
+  }
+  cand.sort((x, y) => x.d - y.d);
+  for (const { d, a, b } of cand) {
+    if (d <= maxM && find(a) !== find(b)) { union(a, b); link(a, b, d); }
+  }
 }
 function graph(): Graph {
   if (!GRAPH) GRAPH = buildGraph(SBR_ROADS);
   return GRAPH;
 }
 function trailGraph(): Graph {
-  if (!TRAIL_GRAPH) TRAIL_GRAPH = buildGraph(SBR_TRAILS);
+  if (!TRAIL_GRAPH) TRAIL_GRAPH = buildGraph(SBR_TRAILS, 80);
   return TRAIL_GRAPH;
 }
 
