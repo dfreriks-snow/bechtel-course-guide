@@ -122,17 +122,12 @@ function stitchComponents(adj: Map<NodeKey, Edge[]>, keys: NodeKey[], nodes: Lat
     if (d <= maxM && find(a) !== find(b)) { union(a, b); link(a, b, d); }
   }
 }
-// Nodes on the vehicle-closed pedestrian corridor (removed from the drive graph).
-let CLOSED_KEYS: Set<NodeKey> | null = null;
-function closedKeys(): Set<NodeKey> {
-  if (!CLOSED_KEYS) {
-    CLOSED_KEYS = new Set<NodeKey>();
-    for (const seg of SBR_WALK_ROADS) for (const [la, ln] of seg.pts) CLOSED_KEYS.add(keyOf(la, ln));
-  }
-  return CLOSED_KEYS;
-}
 function graph(): Graph {
-  if (!GRAPH) GRAPH = buildGraph(SBR_ROADS, 0, closedKeys());
+  // Driving uses the full road network. (The pedestrian-only Jack Furst
+  // corridor is only added to the walk graph, not removed from driving —
+  // removing it disconnected Summit East Parking, which cars must reach.
+  // To keep a driving course off a closed lane, drop a No-drive red X on it.)
+  if (!GRAPH) GRAPH = buildGraph(SBR_ROADS);
   return GRAPH;
 }
 function trailGraph(): Graph {
