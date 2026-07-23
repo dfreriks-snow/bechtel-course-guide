@@ -86,10 +86,33 @@ export default function App() {
   const refreshCourses = () =>
     (isCloud ? fetchCourses(currentCourseId()) : loadSavedCourses()).then(setSavedCourses).catch(() => {});
   useEffect(() => {
-    refreshCourses();
-    if (!isCloud) return;
-    const unsub = subscribeCourses(currentCourseId(), refreshCourses, () => {});
-    return unsub;
+    let unsub = () => {};
+    let cancelled = false;
+    const init = async () => {
+      if (!isCloud) {
+        const l = await loadSavedCourses();
+        if (!cancelled) setSavedCourses(l);
+        return;
+      }
+      try {
+        const [cloud, local] = await Promise.all([fetchCourses(currentCourseId()), loadSavedCourses()]);
+        let list = cloud;
+        // One-time: push any device-local courses into the shared library (by
+        // name, without clobbering cloud versions) so pre-cloud saves sync too.
+        const migrated = (() => { try { return localStorage.getItem("coursesMigrated") === "1"; } catch { return false; } })();
+        if (!migrated && local.length) {
+          const names = new Set(cloud.map((c) => c.name.toLowerCase()));
+          const toPush = local.filter((c) => !names.has(c.name.toLowerCase()));
+          for (const c of toPush) await upsertCourse(c, currentCourseId());
+          try { localStorage.setItem("coursesMigrated", "1"); } catch {}
+          if (toPush.length) list = await fetchCourses(currentCourseId());
+        }
+        if (!cancelled) setSavedCourses(list);
+      } catch { if (!cancelled) refreshCourses(); }
+    };
+    init();
+    if (isCloud) unsub = subscribeCourses(currentCourseId(), refreshCourses, () => {});
+    return () => { cancelled = true; unsub(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [editingId, setEditingId] = useState<string | null>(null);
