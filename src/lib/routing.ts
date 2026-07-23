@@ -164,6 +164,59 @@ function nearestNode(g: Graph, lat: number, lng: number, blocked?: Set<NodeKey>)
   return { key, dist: haversine(lat, lng, blat, blng) };
 }
 
+// Snap an arbitrary point onto the nearest graph *edge* (not just the nearest
+// vertex): project the point onto every edge, and if the closest point lands
+// mid-edge, insert a temporary node there linked to both endpoints. A route can
+// then join the road/trail at the closest point on it — so an off-network pin
+// connects to the network by the shortest hop instead of a long straight line to
+// a distant vertex. Call `unsnap` afterwards to restore the graph.
+interface Snap { key: NodeKey; temp: NodeKey[]; neighbors: NodeKey[] }
+function snapToGraph(g: Graph, lat: number, lng: number, blocked?: Set<NodeKey>): Snap {
+  const cosL = Math.cos((lat * Math.PI) / 180) * 111320;
+  const toXY = (la: number, ln: number): [number, number] => [(ln - lng) * cosL, (la - lat) * 111320];
+  let bestD2 = Infinity, bu: NodeKey | null = null, bv: NodeKey | null = null, bt = 0;
+  for (const [u, edges] of g.adj) {
+    if (blocked?.has(u)) continue;
+    const uc = g.coord.get(u)!;
+    const [ux, uy] = toXY(uc[0], uc[1]);
+    for (const e of edges) {
+      const v = e.to;
+      if (u > v) continue;              // consider each undirected edge once
+      if (blocked?.has(v)) continue;
+      const vc = g.coord.get(v)!;
+      const [vx, vy] = toXY(vc[0], vc[1]);
+      const dx = vx - ux, dy = vy - uy;
+      const len2 = dx * dx + dy * dy;
+      const t = len2 > 0 ? Math.max(0, Math.min(1, -(ux * dx + uy * dy) / len2)) : 0;
+      const qx = ux + t * dx, qy = uy + t * dy; // closest point on edge to origin
+      const d2 = qx * qx + qy * qy;
+      if (d2 < bestD2) { bestD2 = d2; bu = u; bv = v; bt = t; }
+    }
+  }
+  if (bu == null || bv == null) return { key: nearestNode(g, lat, lng, blocked).key, temp: [], neighbors: [] };
+  const uc = g.coord.get(bu)!, vc = g.coord.get(bv)!;
+  const eps = 1e-4;
+  if (bt <= eps) return { key: bu, temp: [], neighbors: [] };
+  if (bt >= 1 - eps) return { key: bv, temp: [], neighbors: [] };
+  const qLat = uc[0] + bt * (vc[0] - uc[0]);
+  const qLng = uc[1] + bt * (vc[1] - uc[1]);
+  const tk: NodeKey = `tmp:${qLat.toFixed(6)},${qLng.toFixed(6)}`;
+  const dU = haversine(qLat, qLng, uc[0], uc[1]);
+  const dV = haversine(qLat, qLng, vc[0], vc[1]);
+  g.coord.set(tk, [qLat, qLng]);
+  g.adj.set(tk, [{ to: bu, dist: dU }, { to: bv, dist: dV }]);
+  g.adj.get(bu)!.push({ to: tk, dist: dU });
+  g.adj.get(bv)!.push({ to: tk, dist: dV });
+  return { key: tk, temp: [tk], neighbors: [bu, bv] };
+}
+function unsnap(g: Graph, s: Snap) {
+  for (const tk of s.temp) { g.adj.delete(tk); g.coord.delete(tk); }
+  for (const n of s.neighbors) {
+    const edges = g.adj.get(n);
+    if (edges) g.adj.set(n, edges.filter((e) => !e.to.startsWith("tmp:")));
+  }
+}
+
 // ── Dijkstra (binary min-heap) ───────────────────────────────────────────────
 class MinHeap {
   private a: { k: NodeKey; d: number }[] = [];
@@ -230,9 +283,10 @@ export function computeRoute(stops: Stop[], zones: SlowZone[], blocked: SlowZone
 
   for (let s = 0; s < stops.length - 1; s++) {
     const a = stops[s], b = stops[s + 1];
-    const na = nearestNode(g, a.lat, a.lng, blockedNodes);
-    const nb = nearestNode(g, b.lat, b.lng, blockedNodes);
-    const legPts = dijkstra(g, na.key, nb.key, blockedNodes);
+    const sa = snapToGraph(g, a.lat, a.lng, blockedNodes);
+    const sb = snapToGraph(g, b.lat, b.lng, blockedNodes);
+    const legPts = dijkstra(g, sa.key, sb.key, blockedNodes);
+    unsnap(g, sb); unsnap(g, sa);
 
     let legMeters = 0, legSecs = 0, slow = false, offRoad = false;
     // Include the connectors from the actual stop to its snapped road node.
@@ -287,9 +341,10 @@ export function computeWalkRoute(stops: Stop[]): RouteResult {
 
   for (let s = 0; s < stops.length - 1; s++) {
     const a = stops[s], b = stops[s + 1];
-    const na = nearestNode(g, a.lat, a.lng);
-    const nb = nearestNode(g, b.lat, b.lng);
-    const legPts = g.nodes.length ? dijkstra(g, na.key, nb.key) : null;
+    const sa = snapToGraph(g, a.lat, a.lng);
+    const sb = snapToGraph(g, b.lat, b.lng);
+    const legPts = g.nodes.length ? dijkstra(g, sa.key, sb.key) : null;
+    unsnap(g, sb); unsnap(g, sa);
 
     let legMeters = 0, offRoad = false;
     const full: LatLng[] = [];

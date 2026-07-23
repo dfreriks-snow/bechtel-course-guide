@@ -81,7 +81,26 @@ export default function PoiEditor({ poi, onSave, onDelete, onClose }: Props) {
           className="mb-3 w-full accent-sun"
         />
 
-        <p className="mb-4 text-xs text-muted">Location: {formatCoord(draft.lat, draft.lng)} · drag the pin on the map to move it.</p>
+        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Location (GPS coordinates)</label>
+        <div className="mb-1 grid grid-cols-2 gap-2">
+          <input
+            type="number"
+            step="any"
+            value={draft.lat}
+            onChange={(e) => set("lat", Number(e.target.value))}
+            placeholder="Latitude"
+            className="w-full rounded-lg border border-border bg-ink px-3 py-2.5 text-base text-white placeholder:text-muted focus:border-sun focus:outline-none"
+          />
+          <input
+            type="number"
+            step="any"
+            value={draft.lng}
+            onChange={(e) => set("lng", Number(e.target.value))}
+            placeholder="Longitude"
+            className="w-full rounded-lg border border-border bg-ink px-3 py-2.5 text-base text-white placeholder:text-muted focus:border-sun focus:outline-none"
+          />
+        </div>
+        <p className="mb-4 text-xs text-muted">{formatCoord(draft.lat, draft.lng)} · type exact coordinates, or drag the pin on the map to move it.</p>
 
         <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">
           Stop time (minutes to visit / explore)
