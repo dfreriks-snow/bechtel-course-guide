@@ -27,7 +27,7 @@ import { TILE_LAYERS, getLayer, prefetchTiles, tilesForBounds, type Bounds } fro
 import { useGeolocation } from "./hooks/useGeolocation";
 import { useWakeLock } from "./hooks/useWakeLock";
 import { isCloud, currentCourseId } from "./lib/supabase";
-import { deletePoiRemote, fetchPois, subscribePois, upsertMany, upsertPoi, type SyncStatus } from "./lib/cloudStore";
+import { deletePoiRemote, fetchPois, subscribePois, upsertMany, upsertPoi, fetchCourses, upsertCourse, deleteCourseRemote, subscribeCourses, type SyncStatus } from "./lib/cloudStore";
 import { computeRoute, computeWalkRoute, roadPolylines, type RouteResult, type SlowZone } from "./lib/routing";
 
 const BECHTEL_CENTER: [number, number] = [37.9169, -81.1153];
@@ -80,7 +80,18 @@ export default function App() {
   const [searchQ, setSearchQ] = useState("");
   const [savedCourses, setSavedCourses] = useState<SavedCourse[]>([]);
   const [saveName, setSaveName] = useState("");
-  useEffect(() => { loadSavedCourses().then(setSavedCourses); }, []);
+  // Named courses: shared across all admins via Supabase when in cloud mode,
+  // otherwise stored per-device. Subscribe to realtime so saves on one device
+  // show up on the others live.
+  const refreshCourses = () =>
+    (isCloud ? fetchCourses(currentCourseId()) : loadSavedCourses()).then(setSavedCourses).catch(() => {});
+  useEffect(() => {
+    refreshCourses();
+    if (!isCloud) return;
+    const unsub = subscribeCourses(currentCourseId(), refreshCourses, () => {});
+    return unsub;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pendingNewId, setPendingNewId] = useState<string | null>(null);
   const [drawer, setDrawer] = useState<"none" | "list" | "menu" | "route">("none");
@@ -400,15 +411,32 @@ export default function App() {
     setDrawer("none");
   };
 
-  // ── Named courses (saved locally on this device) ──
+  // ── Named courses (shared across admins in cloud mode, else per-device) ──
   const saveCurrentCourse = async (name: string) => {
     const clean = (pendingNewId ? pois.filter((x) => x.id !== pendingNewId) : pois);
     if (clean.length === 0) { showToast("Add some points before saving a course."); return; }
-    const list = await saveNamedCourse(name || settings.courseName, clean, routeStops, routeLoop, timeBlocks);
-    setSavedCourses(list);
+    const finalName = (name || settings.courseName).trim() || "Untitled course";
+    if (isCloud) {
+      // Overwrite an existing course with the same name (case-insensitive).
+      const existing = savedCourses.find((c) => c.name.toLowerCase() === finalName.toLowerCase());
+      const course: SavedCourse = {
+        id: existing?.id ?? `course_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+        name: finalName,
+        savedAt: Date.now(),
+        pois: clean.map((p) => ({ ...p })),
+        stops: [...routeStops],
+        loop: routeLoop,
+        timeBlocks: { ...timeBlocks },
+      };
+      try { await upsertCourse(course, currentCourseId()); await refreshCourses(); }
+      catch { showToast("Couldn't save to the shared library — check your connection."); return; }
+    } else {
+      const list = await saveNamedCourse(finalName, clean, routeStops, routeLoop, timeBlocks);
+      setSavedCourses(list);
+    }
     setSaveName("");
     if (name.trim()) setSettings((s) => ({ ...s, courseName: name.trim() }));
-    showToast(`Saved course “${(name.trim() || settings.courseName)}”.`);
+    showToast(`Saved course “${finalName}”${isCloud ? " (shared with all admins)" : ""}.`);
   };
   const loadNamedCourse = (course: SavedCourse) => {
     const sorted = course.pois.map((p) => ({ ...p })).sort((a, b) => a.order - b.order);
@@ -426,7 +454,12 @@ export default function App() {
     setDrawer("none");
   };
   const removeNamedCourse = async (id: string) => {
-    setSavedCourses(await deleteNamedCourse(id));
+    if (isCloud) {
+      try { await deleteCourseRemote(id); await refreshCourses(); }
+      catch { showToast("Couldn't delete from the shared library — check your connection."); }
+    } else {
+      setSavedCourses(await deleteNamedCourse(id));
+    }
   };
   const saveCoursePrompt = () => {
     const name = window.prompt("Save this course as:", settings.courseName || "Bechtel Course");

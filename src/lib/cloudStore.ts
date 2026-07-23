@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import type { Poi } from "./types";
+import type { SavedCourse } from "./store";
 
 // DB row shape (snake_case; `order` is a SQL reserved word so the column is `ord`).
 interface Row {
@@ -108,4 +109,79 @@ export function subscribePois(
   return () => {
     client.removeChannel(channel);
   };
+}
+
+// ── Shared named courses (saved_courses table) ──────────────────────────────
+// The whole SavedCourse (pois/stops/loop/timeBlocks) is packed into a jsonb
+// `data` column; `course_id` scopes courses to the shared workspace like pois.
+interface CourseRow {
+  id: string;
+  course_id: string;
+  name: string;
+  saved_at: number;
+  data: { pois: Poi[]; stops?: string[]; loop?: boolean; timeBlocks?: SavedCourse["timeBlocks"] };
+}
+
+function toCourse(r: CourseRow): SavedCourse {
+  return {
+    id: r.id,
+    name: r.name ?? "",
+    savedAt: r.saved_at ?? Date.now(),
+    pois: r.data?.pois ?? [],
+    stops: r.data?.stops ?? [],
+    loop: r.data?.loop ?? false,
+    timeBlocks: r.data?.timeBlocks ?? {},
+  };
+}
+
+function toCourseRow(c: SavedCourse, courseId: string): CourseRow {
+  return {
+    id: c.id,
+    course_id: courseId,
+    name: c.name,
+    saved_at: c.savedAt,
+    data: { pois: c.pois, stops: c.stops ?? [], loop: c.loop ?? false, timeBlocks: c.timeBlocks ?? {} },
+  };
+}
+
+export async function fetchCourses(courseId: string): Promise<SavedCourse[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.from("saved_courses").select("*").eq("course_id", courseId).order("saved_at", { ascending: false });
+  if (error) throw error;
+  return (data as CourseRow[]).map(toCourse);
+}
+
+export async function upsertCourse(course: SavedCourse, courseId: string): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.from("saved_courses").upsert(toCourseRow(course, courseId));
+  if (error) throw error;
+}
+
+export async function deleteCourseRemote(id: string): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.from("saved_courses").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/** Subscribe to realtime changes for the shared course library. */
+export function subscribeCourses(
+  courseId: string,
+  onChange: () => void,
+  onStatus: (s: SyncStatus) => void
+): () => void {
+  if (!supabase) return () => {};
+  const client = supabase;
+  const channel = client
+    .channel(`saved_courses:${courseId}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "saved_courses", filter: `course_id=eq.${courseId}` },
+      () => onChange()
+    )
+    .subscribe((status) => {
+      if (status === "SUBSCRIBED") onStatus("synced");
+      else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") onStatus("offline");
+      else onStatus("connecting");
+    });
+  return () => { client.removeChannel(channel); };
 }
