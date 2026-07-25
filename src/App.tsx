@@ -38,6 +38,10 @@ const VIEW_ONLY = (() => {
   try { return new URLSearchParams(window.location.search).get("view") === "1"; } catch { return false; }
 })();
 
+// The read-only viewer link expires Sun Jul 26, 2026 at 11:59 PM Eastern (EDT).
+// After this instant the ?view=1 link shows an "expired" screen instead of the app.
+const VIEW_EXPIRES_AT = 1785124740000; // 2026-07-27T03:59:00Z
+
 function chime() {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -176,6 +180,15 @@ export default function App() {
     return { result, orderedNames: ordered.map((p) => p.name) };
   }, [pois, routeStops, routeLoop, travelMode]);
   const [follow, setFollow] = useState(true);
+  // Read-only viewer link expiry: flip to an "expired" screen at the cutoff.
+  const [viewExpired, setViewExpired] = useState(VIEW_ONLY && Date.now() >= VIEW_EXPIRES_AT);
+  useEffect(() => {
+    if (!VIEW_ONLY || viewExpired) return;
+    const ms = VIEW_EXPIRES_AT - Date.now();
+    if (ms <= 0) { setViewExpired(true); return; }
+    const t = window.setTimeout(() => setViewExpired(true), ms);
+    return () => clearTimeout(t);
+  }, [viewExpired]);
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   const [previewId, setPreviewId] = useState<string | null>(null);
   const previewTimer = useRef<number | null>(null);
@@ -528,6 +541,20 @@ export default function App() {
   };
 
   if (!ready) return <div className="flex h-full items-center justify-center text-muted">Loading…</div>;
+
+  if (viewExpired) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-panel px-6 text-center text-pale safe-top safe-bottom safe-x">
+        <div className="text-5xl">🧭</div>
+        <h1 className="text-xl font-bold text-white">This tour link has expired</h1>
+        <p className="max-w-sm text-sm text-muted">
+          The read-only Summit Bechtel Course Guide viewer is no longer available.
+          Please contact the tour lead for a current link.
+        </p>
+        <p className="text-xs text-muted">Administration Team · ELEVATE 2026 National Jamboree</p>
+      </div>
+    );
+  }
 
   return (
     <div className="relative h-full w-full overflow-hidden">
