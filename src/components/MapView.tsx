@@ -24,6 +24,7 @@ interface Props {
   onMapClick: (lat: number, lng: number) => void;
   onMarkerClick: (id: string) => void;
   onMarkerDrag: (id: string, lat: number, lng: number) => void;
+  onUserPan?: () => void;
 }
 
 function poiIcon(poi: Poi, active: boolean, selected: boolean, routeNum?: number, compact = false): L.DivIcon {
@@ -86,6 +87,15 @@ function ClickCapture({ onClick, enabled }: { onClick: (lat: number, lng: number
     click(e) {
       if (enabled) onClick(e.latlng.lat, e.latlng.lng);
     },
+  });
+  return null;
+}
+
+// Detect a user-initiated pan (drag) so the app can stop GPS-following and let
+// the user explore. Programmatic panTo (Follower/FlyTo) does not fire dragstart.
+function UserPanCapture({ onUserPan }: { onUserPan?: () => void }) {
+  useMapEvents({
+    dragstart() { onUserPan?.(); },
   });
   return null;
 }
@@ -177,6 +187,7 @@ export default function MapView(props: Props) {
       />
 
       <ClickCapture enabled={mode === "edit"} onClick={props.onMapClick} />
+      <UserPanCapture onUserPan={props.onUserPan} />
       <Follower fix={fix} follow={follow} />
       <ModeZoom mode={mode} />
       <FlyToSelected selectedId={selectedId} pois={pois} />

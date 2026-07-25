@@ -32,6 +32,12 @@ import { computeRoute, computeWalkRoute, roadPolylines, type RouteResult, type S
 
 const BECHTEL_CENTER: [number, number] = [37.9169, -81.1153];
 
+// Viewer build: ?view=1 hides the Plan (edit) capability entirely — only Drive
+// and Walk. Share this URL for a read-only tour experience.
+const VIEW_ONLY = (() => {
+  try { return new URLSearchParams(window.location.search).get("view") === "1"; } catch { return false; }
+})();
+
 function chime() {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -61,6 +67,7 @@ export default function App() {
 
   const [mode, setMode] = useState<"edit" | "drive" | "walk">("drive");
   const [planUnlocked, setPlanUnlocked] = useState<boolean>(() => {
+    if (VIEW_ONLY) return false;
     try { return localStorage.getItem("planUnlocked") === "1"; } catch { return false; }
   });
   const [showPw, setShowPw] = useState(false);
@@ -281,6 +288,7 @@ export default function App() {
     return hit.slice(0, 12);
   }, [pois, searchQ]);
   const goToPoi = (id: string) => {
+    setFollow(false); // stop GPS-following so the searched location stays put
     setSelectedId(id);
     setSearch(false);
     setSearchQ("");
@@ -551,18 +559,21 @@ export default function App() {
           else previewPoi(id);
         }}
         onMarkerDrag={dragPoi}
+        onUserPan={() => { if (follow) setFollow(false); }}
       />
 
       {/* Top bar */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[1000] flex items-start justify-between gap-2 p-3 safe-top safe-x">
         <div className="pointer-events-auto flex flex-col items-start gap-2">
           <div className="flex overflow-hidden rounded-xl border border-border bg-panel/90 shadow-lg backdrop-blur">
-            <button
-              onClick={() => { if (planUnlocked) setMode("edit"); else { setPwInput(""); setPwError(false); setShowPw(true); } }}
-              className={`px-3 py-2 text-sm font-semibold sm:px-4 sm:py-2.5 ${mode === "edit" ? "bg-sun text-ink" : "text-muted"}`}
-            >
-              {planUnlocked ? "✎ Plan" : "🔒 Plan"}
-            </button>
+            {!VIEW_ONLY && (
+              <button
+                onClick={() => { if (planUnlocked) setMode("edit"); else { setPwInput(""); setPwError(false); setShowPw(true); } }}
+                className={`px-3 py-2 text-sm font-semibold sm:px-4 sm:py-2.5 ${mode === "edit" ? "bg-sun text-ink" : "text-muted"}`}
+              >
+                {planUnlocked ? "✎ Plan" : "🔒 Plan"}
+              </button>
+            )}
             <button
               onClick={() => { setMode("drive"); setFollow(true); }}
               className={`px-3 py-2 text-sm font-semibold sm:px-4 sm:py-2.5 ${mode === "drive" ? "bg-sun text-ink" : "text-muted"}`}
@@ -800,7 +811,9 @@ export default function App() {
             </label>
 
             <div className="mb-4 space-y-2 border-t border-border pt-4">
-              <button onClick={loadStarterPoints} className="w-full rounded-lg border border-sun/50 bg-sun/10 px-4 py-2.5 text-sm font-semibold text-sun hover:bg-sun/20">★ Load Summit Bechtel starter points</button>
+              {!VIEW_ONLY && (
+                <button onClick={loadStarterPoints} className="w-full rounded-lg border border-sun/50 bg-sun/10 px-4 py-2.5 text-sm font-semibold text-sun hover:bg-sun/20">★ Load Summit Bechtel starter points</button>
+              )}
               {planUnlocked ? (
                 <>
                   <button onClick={() => exportCourse(settings.courseName, pois)} className="w-full rounded-lg border border-border px-4 py-2.5 text-sm text-pale hover:bg-card">⤓ Export course (.json)</button>
